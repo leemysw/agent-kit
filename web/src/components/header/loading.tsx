@@ -2,9 +2,15 @@
 
 import { useEffect, useState } from "react";
 
-export function LoadingOrb() {
+// 菱形展开：['·', '◇', '◆', '◈', '❖']
+// 十字扩展：['·', '+', '✚', '✛', '✜']
+// 开花：['✾', '❀', '✿', '❁', '❃']
+// 星辰：['✦', '✧', '✩', '✪', '✫']
+// 雪花：['·', '❄', '❅', '❆', '❉']
+// 螺旋：['◌', '⊚', '⊛', '⊝', '◎']
+
+export function LoadingOrb({frames = ["✽", "✻", "✶", "✢", "·"]}: { frames?: string[] }) {
   const [frame, setFrame] = useState(0);
-  const frames = ["✽", "✻", "✶", "✢", "·"];
 
   useEffect(() => {
     const timer = setInterval(() => {

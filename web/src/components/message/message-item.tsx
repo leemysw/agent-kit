@@ -7,10 +7,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, Copy, Edit2, RefreshCw, Terminal, Trash2, User, Zap } from "lucide-react";
+import { Check, Copy, Edit2, Terminal, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ContentBlock, Message, ResultMessage } from "@/types/message";
 import { ContentRenderer } from "./content-renderer";
+import { MessageStats } from "@/components/header/message-stats";
 
 interface MessageItemProps {
   roundId: string;
@@ -329,74 +330,16 @@ export function MessageItem(
 
                 {/* 底部统计栏（完成后显示） */}
                 {isCompleted && stats && (
-                  <div
-                    className="h-7 px-4 flex items-center gap-3 border-t border-primary/10 text-[10px] text-muted-foreground/50 font-mono">
-                    <span className="tabular-nums">{stats.duration}</span>
-                    {stats.tokens && (
-                      <>
-                        <span className="text-muted-foreground/20">•</span>
-                        <span className="tabular-nums">{stats.tokens}</span>
-                      </>
-                    )}
-                    {stats.cost && (
-                      <>
-                        <span className="text-muted-foreground/20">•</span>
-                        <span className="tabular-nums">{stats.cost}</span>
-                      </>
-                    )}
-                    {stats.cacheHit && (
-                      <>
-                        <span className="text-muted-foreground/20">•</span>
-                        <span>{stats.cacheHit}</span>
-                      </>
-                    )}
-
-                    <div className="flex-1"/>
-
-                    {/* 状态/操作 */}
-                    {showCursor ? (
-                      <div className="flex items-center gap-1">
-                        <Zap className="w-3 h-3 text-primary animate-pulse"/>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                        {/* 复制 */}
-                        <button
-                          onClick={handleCopyAssistant}
-                          className={cn(
-                            "p-1 rounded transition-colors",
-                            copiedAssistant ? "text-green-500" : "text-muted-foreground/50 hover:text-foreground"
-                          )}
-                          title="复制回答"
-                        >
-                          {copiedAssistant ? <Check className="w-3 h-3"/> : <Copy className="w-3 h-3"/>}
-                        </button>
-                        {/* 重新生成 */}
-                        {onRegenerate && isCompleted && (
-                          <button
-                            onClick={handleRegenerate}
-                            disabled={isRegenerating}
-                            className="p-1 rounded text-muted-foreground/50 hover:text-foreground transition-colors disabled:opacity-50"
-                            title="重新生成"
-                          >
-                            <RefreshCw className={cn("w-3 h-3", isRegenerating && "animate-spin")}/>
-                          </button>
-                        )}
-                        {/* 删除 */}
-                        {onDelete && (
-                          <button
-                            onClick={handleDelete}
-                            disabled={isDeleting}
-                            className="p-1 rounded text-muted-foreground/50 hover:text-red-500 transition-colors disabled:opacity-50"
-                            title="删除"
-                          >
-                            <Trash2 className="w-3 h-3"/>
-                          </button>
-                        )}
-                      </div>
-                    )}
-
-                  </div>
+                  <MessageStats
+                    stats={stats}
+                    showCursor={showCursor}
+                    copiedAssistant={copiedAssistant}
+                    isRegenerating={isRegenerating}
+                    isDeleting={isDeleting}
+                    onCopyAssistant={handleCopyAssistant}
+                    onRegenerate={onRegenerate && isCompleted ? handleRegenerate : undefined}
+                    onDelete={onDelete ? handleDelete : undefined}
+                  />
                 )}
 
                 {/* 底部进度条（流式时） */}

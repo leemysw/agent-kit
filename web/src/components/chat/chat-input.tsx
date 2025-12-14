@@ -3,6 +3,7 @@
 import { KeyboardEvent, memo, useCallback, useEffect, useRef, useState } from "react";
 import { FileText, Image, Paperclip, Send, StopCircle, X, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { LoadingOrb } from "@/components/header/loading";
 
 interface AttachmentFile {
   id: string;
@@ -169,7 +170,8 @@ const ChatInput = memo((
       <div className="absolute inset-0 scanline opacity-20 pointer-events-none"/>
 
       {/* 顶部发光线 */}
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent"/>
+      <div
+        className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent"/>
 
       <div className="max-w-4xl mx-auto py-2 relative">
         {/* 附件预览区域 */}
@@ -344,6 +346,7 @@ const ChatInput = memo((
             <div className="flex items-center gap-3 text-[10px] text-muted-foreground/50">
               {isLoading ? (
                 <span className="flex items-center gap-2 text-primary/70">
+                  <LoadingOrb frames={["✽", "✻", "✶", "✢", "·"]}/>
                   <Zap size={10} className="animate-pulse"/>
                   <span className="animate-pulse">正在处理...</span>
                   <span className="text-muted-foreground/30">[ESC 停止]</span>
