@@ -112,7 +112,7 @@ cd agent-kit
 
 ```bash
 # Copy environment variable template
-cp .env.example .env
+cp example.env .env
 # Edit .env file and add your API key
 ```
 
@@ -154,7 +154,7 @@ cd agent-kit
 pip install -r agent/requirements.txt
 
 # Configure environment variables
-cp .env.example .env
+cp example.env .env
 # Edit .env file and add your API key
 ```
 
@@ -182,7 +182,7 @@ cd web
 npm install
 
 # Configure environment variables
-cp env.example .env.local
+cp example.env .env.local
 # Edit .env.local file
 ```
 

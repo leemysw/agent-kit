@@ -113,7 +113,7 @@ cd agent-kit
 
 ```bash
 # 复制环境变量模板
-cp .env.example .env
+cp example.env .env
 # 编辑 .env 文件，添加你的 API 密钥
 ```
 
@@ -157,7 +157,7 @@ cd agent-kit
 pip install -r agent/requirements.txt
 
 # 配置环境变量
-cp .env.example .env
+cp example.env .env
 # 编辑 .env 文件，添加你的 API 密钥
 ```
 
@@ -185,7 +185,7 @@ cd web
 npm install
 
 # 配置环境变量
-cp env.example .env.local
+cp example.env .env.local
 # 编辑 .env.local 文件
 ```
 
