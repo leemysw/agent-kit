@@ -39,7 +39,7 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
   } | null>(null);
 
   // Store
-  const { getSession, updateSession } = useSessionStore();
+  const {getSession, updateSession} = useSessionStore();
 
   // Refs
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -97,7 +97,7 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
               return prev;
             }
 
-            const updatedMsg = { ...lastMsg } as any;
+            const updatedMsg = {...lastMsg} as any;
             updatedMsg.content = [...updatedMsg.content];
 
             if (event.type === 'content_block_start') {
@@ -184,7 +184,7 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
                   // 找到了，计算实际索引
                   const actualIndex = prev.length - 1 - targetIndex;
                   const newMessages = [...prev];
-                  const targetMessage = { ...newMessages[actualIndex] } as any;
+                  const targetMessage = {...newMessages[actualIndex]} as any;
 
                   // 合并 content
                   targetMessage.content = [...targetMessage.content, ...toolResultContent];
@@ -238,7 +238,7 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
   }, [agentId]);
 
   // WebSocket
-  const { state: wsState, send: wsSend } = useWebSocket({
+  const {state: wsState, send: wsSend} = useWebSocket({
     url: wsUrl,
     autoConnect: true,  // 启用自动连接
     reconnect: true,
@@ -326,7 +326,7 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
 
     // 发送到后端
     if (agentId && wsSend) {
-      const interruptMsg = { type: 'interrupt', agent_id: agentId };
+      const interruptMsg = {type: 'interrupt', agent_id: agentId};
       console.debug('[useAgentSession] 发送停止消息:', interruptMsg);
       console.debug('[useAgentSession] WebSocket 状态:', wsState);
 
@@ -367,32 +367,6 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
     setPendingPermission(null);
   }, [pendingPermission, agentId, wsSend]);
 
-  // 创建操作函数
-  const loadHistoryMessages = useCallback(
-    createLoadHistoryMessages(setMessages, updateSession, convertBackendMessage),
-    [updateSession]
-  );
-
-  const startSession = useCallback(
-    createStartSession(setAgentId, setMessages, setToolCalls, setError, setIsLoading),
-    []
-  );
-
-  const loadSession = useCallback(
-    createLoadSession(setAgentId, setMessages, setError, convertBackendMessage),
-    []
-  );
-
-  const clearSession = useCallback(
-    createClearSession(setMessages, setToolCalls, setError, setIsLoading, setAgentId, abortControllerRef),
-    []
-  );
-
-  const resetSession = useCallback(
-    createResetSession(startSession),
-    [startSession]
-  );
-
   /**
    * 删除一轮对话
    */
@@ -424,7 +398,14 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
     }
 
     // 找到最后一轮的用户消息
-    const lastUserMessage = [...messages].reverse().find(m => m.role === 'user');
+    let lastUserMessage = null;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if (m.role === 'user' && m.messageId === m.roundId) {
+        lastUserMessage = m;
+        break;
+      }
+    }
     if (!lastUserMessage) {
       console.error('[regenerate] No user message found');
       return;
@@ -435,23 +416,10 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
 
     try {
       // 1. 删除后端的整轮数据
-      await deleteRoundApi(agentId, lastRoundId);
+      await deleteRound(lastRoundId);
 
-      // 2. 前端：只删除非用户消息（保留用户问题）
-      setMessages(prev => prev.filter(m =>
-        m.roundId !== lastRoundId || m.role === 'user'
-      ));
-
-      // 3. 设置加载状态
-      setIsLoading(true);
-      setError(null);
-
-      // 4. 重新发送到后端（不创建新的用户消息，因为已保留）
-      wsSend({
-        type: 'chat',
-        content: lastContent,
-        agent_id: agentId,
-      });
+      // 2. 发送消息
+      await sendMessage(lastContent);
 
       console.debug('[regenerate] 重新生成成功，保留用户问题');
     } catch (err) {
@@ -460,6 +428,32 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
       setIsLoading(false);
     }
   }, [agentId, messages, wsSend]);
+
+  // 创建操作函数
+  const loadHistoryMessages = useCallback(
+    createLoadHistoryMessages(setMessages, updateSession, convertBackendMessage),
+    [updateSession]
+  );
+
+  const startSession = useCallback(
+    createStartSession(setAgentId, setMessages, setToolCalls, setError, setIsLoading),
+    []
+  );
+
+  const loadSession = useCallback(
+    createLoadSession(setAgentId, setMessages, setError, convertBackendMessage),
+    []
+  );
+
+  const clearSession = useCallback(
+    createClearSession(setMessages, setToolCalls, setError, setIsLoading, setAgentId, abortControllerRef),
+    []
+  );
+
+  const resetSession = useCallback(
+    createResetSession(startSession),
+    [startSession]
+  );
 
   // 清理
   useEffect(() => {
