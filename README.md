@@ -121,7 +121,7 @@ cp example.env .env
 ```bash
 make start
 ╰─ make start
-TAG=0.1.0 docker compose -f deploy/docker-compose.yml up -d
+TAG=0.1.1 docker compose -f deploy/docker-compose.yml up -d
 [+] Running 3/3
  ✔ Container deploy-agent-kit-1  Started                                                                                                                                           1.8s 
  ✔ Container deploy-frontend-1   Started                                                                                                                                           0.9s 
