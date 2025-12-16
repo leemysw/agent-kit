@@ -26,7 +26,7 @@ interface MessageItemProps {
   onPermissionResponse?: (decision: 'allow' | 'deny') => void;
   hiddenToolNames?: string[];
   onDelete?: (roundId: string) => Promise<void>;
-  onRegenerate?: () => Promise<void>;
+  onRegenerate?: (roundId: string) => Promise<void>;
   onEditUserMessage?: (messageId: string, newContent: string) => void;
   className?: string;
 }
@@ -179,11 +179,11 @@ export function MessageItem(
     if (!onRegenerate || isRegenerating) return;
     setIsRegenerating(true);
     try {
-      await onRegenerate();
+      await onRegenerate(roundId);
     } finally {
       setIsRegenerating(false);
     }
-  }, [onRegenerate, isRegenerating]);
+  }, [onRegenerate, roundId, isRegenerating]);
 
   const showCursor = isLastRound && isLoading && assistantMessages.length > 0;
   const isCompleted = hasFinalAnswer && !isLoading;

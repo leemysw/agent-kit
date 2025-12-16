@@ -85,6 +85,7 @@ class ChatHandler(BaseHandler):
         """
         agent_id = message.get("agent_id")
         content = message.get("content")
+        round_id = message.get("round_id")  # 从前端获取 round_id
 
         # 按需获取或创建client
         try:
@@ -101,13 +102,13 @@ class ChatHandler(BaseHandler):
 
         # 使用锁确保同一会话的顺序处理
         async with session_manager.get_lock(agent_id):
-            logger.info(f"📨处理消息: agent_id={agent_id}")
+            logger.info(f"📨处理消息: agent_id={agent_id}, round_id={round_id}")
 
             # 发送查询到Claude
             await client.query(content)
 
-            # 为本轮对话初始化消息处理器
-            processor = ChatMessageProcessor(agent_id=agent_id, query=content)
+            # 为本轮对话初始化消息处理器，传递前端的 round_id
+            processor = ChatMessageProcessor(agent_id=agent_id, query=content, round_id=round_id)
 
             # 流式响应回前端
             async for response_msg in client.receive_messages():

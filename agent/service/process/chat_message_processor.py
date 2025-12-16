@@ -23,11 +23,12 @@ from agent.utils.logger import logger
 class ChatMessageProcessor:
     """单轮聊天消息处理器 - 管理消息状态和处理逻辑"""
 
-    def __init__(self, agent_id: str, query: str):
+    def __init__(self, agent_id: str, query: str, round_id: Optional[str] = None):
         self.query = query
         self.agent_id = agent_id
         self.subtype: Optional[str] = None
-        self.round_id: Optional[str] = None  # 将使用用户消息的ID作为轮次ID
+        # 如果前端提供了 round_id 则使用，否则后端会在 save_user_message 时生成
+        self.round_id: Optional[str] = round_id
         self.parent_id: Optional[str] = None
         self.session_id: Optional[str] = None
 
@@ -144,7 +145,10 @@ class ChatMessageProcessor:
         """
 
         if not self.is_save_user_message:
-            self.round_id = str(uuid.uuid4())  # 设置轮次ID为用户消息ID
+            # 如果前端没有提供 round_id，则后端生成
+            if not self.round_id:
+                self.round_id = str(uuid.uuid4())
+            
             user_message = AMessage(
                 agent_id=self.agent_id,
                 round_id=self.round_id,

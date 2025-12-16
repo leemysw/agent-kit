@@ -40,15 +40,15 @@ export function ChatInterface({agentId: externalAgentId, onNewSession: onNewSess
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const {
+    error,
     messages,
     toolCalls,
     agentId,
     isLoading,
-    error,
+    pendingPermission,
     sendMessage,
     stopGeneration,
     loadSession,
-    pendingPermission,
     sendPermissionResponse,
     deleteRound,
     regenerate,

@@ -31,7 +31,7 @@ export interface UseAgentSessionReturn {
     /** 删除一轮对话 */
     deleteRound: (roundId: string) => Promise<void>;
     /** 重新生成最后一轮回答 */
-    regenerate: () => Promise<void>;
+    regenerate: (roundId: string) => Promise<void>;
     // 权限相关
     pendingPermission: {
         request_id: string;

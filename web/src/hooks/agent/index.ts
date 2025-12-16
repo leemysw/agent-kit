@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useWebSocket } from '@/lib/websocket';
 import { useSessionStore } from '@/store/session';
-import { AgentId, Message, ToolCall } from '@/types';
+import { AgentId, Message, ToolCall, UserMessage } from '@/types';
 import { UseAgentSessionOptions, UseAgentSessionReturn } from './types';
 import { convertBackendMessage, extractToolCalls } from './message-converter';
 import {
@@ -153,13 +153,13 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
 
           // 2. 处理普通消息 (Message)
           // 首先检查是否已经存在相同messageId的消息（流式结束后的完整消息）
-          console.debug('[useAgentSession] Processing message:', newMessage);
+          // console.debug('[useAgentSession] Processing message:', newMessage);
           const existingIndex = prev.findIndex(m => m.messageId === (newMessage as Message).messageId);
           if (existingIndex !== -1 && (newMessage as Message).messageId) {
             // 更新现有消息，保留完整内容
             const newMessages = [...prev];
             newMessages[existingIndex] = newMessage as Message;
-            console.debug('[useAgentSession] Updated existing message:', (newMessage as Message).messageId);
+            // console.debug('[useAgentSession] Updated existing message:', (newMessage as Message).messageId);
             return newMessages;
           }
 
@@ -253,7 +253,6 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
       }
     },
   });
-
   /**
    * 发送消息
    */
@@ -293,11 +292,12 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
       setIsLoading(true);
       setError(null);
 
-      // 发送到后端
+      // 发送到后端，带上 round_id 保证前后端一致
       wsSend({
         type: 'chat',
         content,
         agent_id: agentId,
+        round_id: message_id,
       });
 
       console.debug('[sendMessage] 消息发送成功');
@@ -345,6 +345,7 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
     }
 
     setIsLoading(false);
+    setToolCalls([]);
 
   }, [agentId, wsSend, wsState]);
 
@@ -391,32 +392,26 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
    * 重新生成最后一轮回答
    * 保留用户问题，只删除回答后重新生成
    */
-  const regenerate = useCallback(async () => {
-    if (!agentId || messages.length === 0) {
+  const regenerate = useCallback(async (roundId: string) => {
+    // 使用 ref 获取最新的 messages
+    if (!agentId) {
       console.error('[regenerate] No agentId or messages');
       return;
     }
 
     // 找到最后一轮的用户消息
-    let lastUserMessage = null;
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const m = messages[i];
-      if (m.role === 'user' && m.messageId === m.roundId) {
-        lastUserMessage = m;
-        break;
-      }
-    }
+    const lastUserMessage = messages.findLast(m => m.role === 'user' && m.messageId === roundId);
+    console.debug('[regenerate] 找到最后一轮用户消息:', lastUserMessage);
+
     if (!lastUserMessage) {
       console.error('[regenerate] No user message found');
       return;
     }
-
-    const lastRoundId = lastUserMessage.roundId;
-    const lastContent = typeof lastUserMessage.content === 'string' ? lastUserMessage.content : '';
+    const lastContent = (lastUserMessage as UserMessage).content ?? '';
 
     try {
       // 1. 删除后端的整轮数据
-      await deleteRound(lastRoundId);
+      await deleteRound(roundId);
 
       // 2. 发送消息
       await sendMessage(lastContent);
@@ -465,11 +460,12 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
   }, []);
 
   return {
+    error,
     messages,
     toolCalls,
     agentId,
     isLoading,
-    error,
+    pendingPermission,
     sendMessage,
     startSession,
     loadSession,
@@ -479,8 +475,6 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
     stopGeneration,
     deleteRound,
     regenerate,
-    // 权限相关
-    pendingPermission,
     sendPermissionResponse,
   };
 }
