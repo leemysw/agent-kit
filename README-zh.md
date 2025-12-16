@@ -9,6 +9,8 @@
 [![Python](https://img.shields.io/badge/Python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-Latest-green.svg)](https://fastapi.tiangolo.com/)
 [![Next.js](https://img.shields.io/badge/Next.js-24.0%2B-black.svg)](https://nextjs.org/)
+[![Docker Pulls](https://img.shields.io/docker/pulls/leemysw/agent-kit.svg)](https://hub.docker.com/r/leemysw/agent-kit)
+
 
 **[中文](./README-zh.md) | [English](./README.md)**
 

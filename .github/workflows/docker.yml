@@ -38,6 +38,7 @@ jobs:
       with:
         images: leemysw/agent-kit
         tags: |
+          type=raw,value=latest,enable=false
           type=raw,value=${{ matrix.role }}
           type=raw,value=${{ matrix.role }}-latest
           type=semver,pattern=${{ matrix.role }}-{{version}}

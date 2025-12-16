@@ -14,7 +14,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
 # 安装构建依赖
-RUN apt-get update && \
+RUN --mount=type=cache,target=/var/cache/apt \
+    apt-get update && \
     apt-get install -y --no-install-recommends \
     curl vim &&  \
     rm -rf /var/lib/apt/lists/* && \
@@ -35,9 +36,9 @@ ARG PIP_MIRROR=https://pypi.tuna.tsinghua.edu.cn/simple
 RUN pip config set global.index-url ${PIP_MIRROR}
 
 # 安装依赖
-RUN pip install --upgrade pip && \
-    pip install -r requirements.txt && \
-    rm -rf /root/.cache/pip
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --upgrade pip && \
+    pip install -r requirements.txt
 
 # 构建阶段 - 构建包
 FROM builder AS package-builder
@@ -47,9 +48,9 @@ COPY pyproject.toml MANIFEST.in ./
 COPY agent ./agent
 
 # 安装构建工具并构建 wheel
-RUN pip install build wheel && \
-    python -m build --wheel && \
-    rm -rf /opt/app/build
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install build wheel && \
+    python -m build --wheel
 
 
 # 运行阶段
