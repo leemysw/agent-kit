@@ -13,17 +13,13 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# 安装构建依赖（使用缓存）
-RUN --mount=type=cache,target=/var/cache/apt \
-    --mount=type=cache,target=/var/lib/apt \
-    apt-get update && \
+# 安装构建依赖
+RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    curl \
-    vim \
-    iputils-ping \
-    ca-certificates &&  \
-    rm -rf /var/lib/apt/lists/*  && \
+    curl vim &&  \
+    rm -rf /var/lib/apt/lists/* && \
     apt-get clean
+
 
 # 设置工作目录
 WORKDIR /opt/app
@@ -38,10 +34,10 @@ COPY ../agent/requirements.txt ./requirements.txt
 ARG PIP_MIRROR=https://pypi.tuna.tsinghua.edu.cn/simple
 RUN pip config set global.index-url ${PIP_MIRROR}
 
-# 安装依赖（使用缓存）
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --upgrade pip && \
-    pip install -r requirements.txt
+# 安装依赖
+RUN pip install --upgrade pip && \
+    pip install -r requirements.txt && \
+    rm -rf /root/.cache/pip
 
 # 构建阶段 - 构建包
 FROM builder AS package-builder
@@ -51,8 +47,7 @@ COPY pyproject.toml MANIFEST.in ./
 COPY agent ./agent
 
 # 安装构建工具并构建 wheel
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install build wheel && \
+RUN pip install build wheel && \
     python -m build --wheel && \
     rm -rf /opt/app/build
 
