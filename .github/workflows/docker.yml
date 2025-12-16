@@ -36,7 +36,7 @@ jobs:
       id: meta
       uses: docker/metadata-action@v5
       with:
-        images: leemysw/${{ github.name }}
+        images: leemysw/agent-kit
         tags: |
           type=raw,value=${{ matrix.role }}
           type=raw,value=${{ matrix.role }}-latest
