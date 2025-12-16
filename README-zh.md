@@ -123,10 +123,10 @@ cp example.env .env
 make start
 
 ╰─ make start
-TAG=0.1.1 docker compose -f deploy/docker-compose.yml up -d
+TAG=0.1.2 docker compose -f deploy/docker-compose.yml up -d
 [+] Running 3/3
  ✔ Container deploy-agent-kit-1  Started                                                                                                                                           1.8s 
- ✔ Container deploy-frontend-1   Started                                                                                                                                           0.9s 
+ ✔ Container deploy-web-1   Started                                                                                                                                           0.9s 
  ✔ Container deploy-nginx-1      Running                                                                                                                                           0.0s 
 
 ✅ Agent Kit is running!

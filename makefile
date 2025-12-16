@@ -1,4 +1,4 @@
-TAG:=0.1.1
+TAG:=0.1.2
 
 # Default target
 .DEFAULT_GOAL := help
@@ -62,10 +62,10 @@ build: ## Build Docker images
 	TAG=$(TAG) docker compose -f deploy/docker-compose.yml build
 
 build-backend: ## Build backend Docker image
-	docker build --progress=plain -f deploy/Dockerfile -t leemysw/agent-kit:$(TAG) .
+	docker build --progress=plain -f deploy/Dockerfile -t leemysw/agent-kit:app-$(TAG) .
 
 build-web: ## Build frontend Docker image
-	docker build --progress=plain -f web/Dockerfile -t leemysw/agent-kit-frontend:$(TAG) ./web
+	docker build --progress=plain -f web/Dockerfile -t leemysw/agent-kit:web-$(TAG) ./web
 
 start: ## Start all services with Docker
 	@if ! docker network inspect net >/dev/null 2>&1; then \

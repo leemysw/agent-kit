@@ -9,6 +9,7 @@
 [![Python](https://img.shields.io/badge/Python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-Latest-green.svg)](https://fastapi.tiangolo.com/)
 [![Next.js](https://img.shields.io/badge/Next.js-24.0%2B-black.svg)](https://nextjs.org/)
+[![Docker Pulls](https://img.shields.io/docker/pulls/leemysw/agent-kit.svg)](https://hub.docker.com/r/leemysw/agent-kit)
 
 **[English](./README.md) | [中文](./README-zh.md)**
 
@@ -121,10 +122,10 @@ cp example.env .env
 ```bash
 make start
 ╰─ make start
-TAG=0.1.1 docker compose -f deploy/docker-compose.yml up -d
+TAG=0.1.2 docker compose -f deploy/docker-compose.yml up -d
 [+] Running 3/3
  ✔ Container deploy-agent-kit-1  Started                                                                                                                                           1.8s 
- ✔ Container deploy-frontend-1   Started                                                                                                                                           0.9s 
+ ✔ Container deploy-web-1   Started                                                                                                                                           0.9s 
  ✔ Container deploy-nginx-1      Running                                                                                                                                           0.0s 
 
 ✅ Agent Kit is running!

@@ -11,7 +11,7 @@ services:
     build:
       context: ..
       dockerfile: deploy/Dockerfile
-    image: ${IMAGE:-leemysw/agent-kit}:${TAG}
+    image: ${IMAGE:-leemysw/agent-kit}:app-${TAG}
     restart: always
     environment:
       - TZ=Asia/Shanghai
@@ -28,7 +28,7 @@ services:
     logging: *default-logging
 
   # 前端服务
-  frontend:
+  web:
     build:
       context: ../web
       dockerfile: Dockerfile
@@ -37,7 +37,7 @@ services:
         - NEXT_PUBLIC_API_URL=http://localhost/agent/v1
         - NEXT_PUBLIC_DEFAULT_MODEL=glm-4.6
         - NEXT_PUBLIC_DEFAULT_CWD=/opt/app/playground
-    image: ${IMAGE:-leemysw/agent-kit-frontend}:${TAG}
+    image: ${IMAGE:-leemysw/agent-kit}:web-${TAG}
     restart: always
     environment:
       - TZ=Asia/Shanghai
@@ -69,7 +69,7 @@ services:
       - "443:443"
     depends_on:
       - agent-kit
-      - frontend
+      - web
     logging: *default-logging
 
 networks:
