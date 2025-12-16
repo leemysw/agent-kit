@@ -8,5 +8,5 @@
 # 2025/11/25 22:18   Create
 # =====================================================
 
-version_info = (0, 1, 0)
+version_info = (0, 1, 1)
 __version__ = ".".join([str(v) for v in version_info])
