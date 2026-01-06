@@ -1,6 +1,11 @@
 /**
  * Agent API 服务模块
  * 处理与 Agent 后端的通信
+ *
+ * [INPUT]: 依赖 @/types/session 的会话类型定义
+ * [OUTPUT]: 对外提供 getSessions、createSession、updateSession、deleteSession 等 API 函数
+ * [POS]: lib 模块的 API 层，负责驼峰→下划线命名转换（如 settingSources → setting_sources）
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { ApiSession, CreateSessionParams, Session, UpdateSessionParams } from '@/types/session';
@@ -141,7 +146,8 @@ export const createSession = async (agentId: string, params: CreateSessionParams
     disallowed_tools: params.options?.disallowedTools,
     cwd: params.options?.cwd,
     include_partial_messages: params.options?.includePartialMessages,
-
+    // Skills 配置
+    setting_sources: params.options?.settingSources,
   }
 
   const response = await fetch(`${AGENT_API_BASE_URL}/sessions`, {
@@ -178,6 +184,8 @@ export const updateSession = async (agentId: string, params: UpdateSessionParams
     disallowed_tools: params.options?.disallowedTools,
     cwd: params.options?.cwd,
     include_partial_messages: params.options?.includePartialMessages,
+    // Skills 配置
+    setting_sources: params.options?.settingSources,
   }
 
   const response = await fetch(`${AGENT_API_BASE_URL}/sessions/${agentId}`, {

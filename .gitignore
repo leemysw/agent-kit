@@ -16,6 +16,9 @@ dist/
 build/
 *.tsbuildinfo
 
+# ai
+**/CLAUDE.md
+
 # Logs
 logs/
 *.log

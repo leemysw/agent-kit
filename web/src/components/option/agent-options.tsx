@@ -16,7 +16,7 @@
 "use client";
 
 import { useState } from "react";
-import { MessageSquare, Settings, Wrench, X, Zap } from "lucide-react";
+import { MessageSquare, Settings, Sparkles, Wrench, X, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SessionOptions } from "@/types/session";
 
@@ -37,7 +37,7 @@ interface AgentOptionsProps {
   initialOptions?: Partial<SessionOptions>;
 }
 
-type TabKey = 'basic' | 'prompt' | 'tools' | 'advanced';
+type TabKey = 'basic' | 'prompt' | 'tools' | 'skills' | 'advanced';
 
 // 预定义的模型列表
 const AVAILABLE_MODELS = [
@@ -89,12 +89,27 @@ export function AgentOptions(
   const [includePartialMessages, setIncludePartialMessages] = useState(initialOptions.includePartialMessages ?? true);
   // 工作目录状态
   const [workingDirectory, setWorkingDirectory] = useState(initialOptions.cwd || '～/.agent');
+  // 技能配置状态
+  const [skillsEnabled, setSkillsEnabled] = useState(initialOptions.skillsEnabled ?? false);
+  const [settingSources, setSettingSources] = useState<('user' | 'project')[]>(
+    initialOptions.settingSources || ['user', 'project']
+  );
+
+  // 切换技能来源
+  const toggleSettingSource = (source: 'user' | 'project') => {
+    setSettingSources(prev =>
+      prev.includes(source)
+        ? prev.filter(s => s !== source)
+        : [...prev, source]
+    );
+  };
 
   // 标签页配置
   const tabs = [
     {key: 'basic' as TabKey, label: '基础设置', icon: Settings},
     {key: 'prompt' as TabKey, label: '提示词设置', icon: MessageSquare},
     {key: 'tools' as TabKey, label: '工具与权限', icon: Wrench},
+    {key: 'skills' as TabKey, label: 'SKILLS 配置', icon: Sparkles},
     {key: 'advanced' as TabKey, label: '高级设置', icon: Zap},
   ];
 
@@ -117,15 +132,24 @@ export function AgentOptions(
 
   // 处理保存
   const handleSave = () => {
+    // 如果启用技能，自动添加 "Skill" 到 allowedTools
+    let finalAllowedTools = [...allowedTools];
+    if (skillsEnabled && !finalAllowedTools.includes('Skill')) {
+      finalAllowedTools.push('Skill');
+    }
+
     const options: SessionOptions = {
       model,
       permissionMode,
-      allowedTools,
+      allowedTools: finalAllowedTools,
       disallowedTools,
       systemPrompt: systemPrompt || undefined,
       maxTurns: maxTurns ? parseInt(maxTurns) : undefined,
       cwd: workingDirectory || undefined,
       includePartialMessages,
+      // Skills 配置
+      skillsEnabled,
+      settingSources: skillsEnabled ? settingSources : undefined,
     };
     onSave(title, options);
     onClose();
@@ -276,12 +300,12 @@ export function AgentOptions(
                     <span className="text-xs font-normal text-muted-foreground">支持 Markdown</span>
                   </label>
                   <div className="flex-1 relative">
-                                        <textarea
-                                          value={systemPrompt}
-                                          onChange={(e) => setSystemPrompt(e.target.value)}
-                                          className="absolute inset-0 w-full h-full rounded-md border border-input bg-background px-4 py-3 text-sm font-mono ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none leading-relaxed"
-                                          placeholder="在此输入自定义系统提示词，它将决定 Agent 的行为模式、角色设定和限制条件..."
-                                        />
+                    <textarea
+                      value={systemPrompt}
+                      onChange={(e) => setSystemPrompt(e.target.value)}
+                      className="absolute inset-0 w-full h-full rounded-md border border-input bg-background px-4 py-3 text-sm font-mono ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none leading-relaxed"
+                      placeholder="在此输入自定义系统提示词，它将决定 Agent 的行为模式、角色设定和限制条件..."
+                    />
                   </div>
                   <p className="text-xs text-muted-foreground">
                     💡 提示：自定义系统提示词将覆盖默认的 Agent 设定。
@@ -331,8 +355,8 @@ export function AgentOptions(
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">工具授权</h3>
                     <span className="text-xs text-muted-foreground">
-                                            已启用 {allowedTools.length} 个工具
-                                        </span>
+                      已启用 {allowedTools.length} 个工具
+                    </span>
                   </div>
 
                   <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-4 flex gap-3">
@@ -391,6 +415,128 @@ export function AgentOptions(
                     })}
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* 技能配置 */}
+            {activeTab === 'skills' && (
+              <div className="space-y-8 max-w-2xl animate-in slide-in-from-right-4 duration-300">
+                <div className="space-y-4">
+                  <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Agent Skills</h3>
+
+                  {/* 技能启用开关 */}
+                  <div
+                    className="flex items-center justify-between p-4 border rounded-lg bg-card hover:border-primary/20 transition-all">
+                    <div className="flex-1">
+                      <label className="text-sm font-medium leading-none flex items-center gap-2">
+                        启用技能系统
+                        {skillsEnabled && <span
+                          className="text-[10px] px-1.5 py-0.5 bg-green-500/10 text-green-600 rounded font-medium">已启用</span>}
+                      </label>
+                      <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                        技能是可重用的专业能力模块，Claude 会根据任务上下文自动调用相关技能。
+                      </p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer ml-4">
+                      <input
+                        type="checkbox"
+                        checked={skillsEnabled}
+                        onChange={(e) => setSkillsEnabled(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div
+                        className="w-11 h-6 bg-muted rounded-full peer peer-focus:ring-2 peer-focus:ring-primary/20 dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+                    </label>
+                  </div>
+                </div>
+
+                {/* 技能来源选择 */}
+                {skillsEnabled && (
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">技能加载来源</h3>
+
+                    <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-4 flex gap-3">
+                      <div className="text-orange-600 mt-0.5">
+                        <Sparkles className="w-4 h-4"/>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-orange-700">关于技能来源</p>
+                        <p className="text-xs text-orange-600/90 mt-1 leading-relaxed">
+                          技能从 SKILL.md 文件中加载。用户技能保存在 ~/.claude/skills/，项目技能保存在工作目录下的
+                          .claude/skills/。
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3">
+                      {/* 用户技能 */}
+                      <div
+                        className={cn(
+                          "flex items-center justify-between p-4 border rounded-lg transition-all duration-200",
+                          settingSources.includes('user')
+                            ? "bg-primary/5 border-primary/30"
+                            : "bg-card border-border hover:border-primary/20"
+                        )}
+                      >
+                        <div className="flex-1 mr-4">
+                          <div className="font-medium text-sm flex items-center gap-2">
+                            用户技能
+                            {settingSources.includes('user') && <span
+                              className="text-[10px] px-1.5 py-0.5 bg-primary/10 text-primary rounded font-medium">已启用</span>}
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            从 ~/.claude/skills/ 加载个人技能，跨所有项目可用
+                          </div>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={settingSources.includes('user')}
+                            onChange={() => toggleSettingSource('user')}
+                            className="sr-only peer"
+                          />
+                          <div
+                            className="w-11 h-6 bg-muted rounded-full peer peer-focus:ring-2 peer-focus:ring-primary/20 dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+                        </label>
+                      </div>
+
+                      {/* 项目技能 */}
+                      <div
+                        className={cn(
+                          "flex items-center justify-between p-4 border rounded-lg transition-all duration-200",
+                          settingSources.includes('project')
+                            ? "bg-primary/5 border-primary/30"
+                            : "bg-card border-border hover:border-primary/20"
+                        )}
+                      >
+                        <div className="flex-1 mr-4">
+                          <div className="font-medium text-sm flex items-center gap-2">
+                            项目技能
+                            {settingSources.includes('project') && <span
+                              className="text-[10px] px-1.5 py-0.5 bg-primary/10 text-primary rounded font-medium">已启用</span>}
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            从 .claude/skills/ 加载工作目录下的项目技能，可通过 Git 共享
+                          </div>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={settingSources.includes('project')}
+                            onChange={() => toggleSettingSource('project')}
+                            className="sr-only peer"
+                          />
+                          <div
+                            className="w-11 h-6 bg-muted rounded-full peer peer-focus:ring-2 peer-focus:ring-primary/20 dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+                        </label>
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-muted-foreground">
+                      💡 提示：至少需要启用一个技能来源，Claude 才能发现和使用技能。
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 

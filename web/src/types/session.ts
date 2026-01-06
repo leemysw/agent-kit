@@ -2,6 +2,11 @@
  * 会话类型定义
  *
  * 统一的会话数据结构，避免重复定义
+ *
+ * [INPUT]: 依赖 @/types/sdk 的 AgentId、SessionId
+ * [OUTPUT]: 对外提供 SessionOptions、Session、ApiSession、CreateSessionParams、UpdateSessionParams
+ * [POS]: types 模块的会话核心类型，被 agent-api.ts 和 agent-options.tsx 消费
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 // ==================== 会话配置 ====================
@@ -20,7 +25,11 @@ export interface SessionOptions {
   cwd?: string;
   // 流式输出
   includePartialMessages?: boolean;
-
+  // Skills 配置
+  /** 技能加载源: user(~/.claude/skills/) 和/或 project(.claude/skills/) */
+  settingSources?: ('user' | 'project')[];
+  /** 是否启用技能（启用后自动添加 "Skill" 到 allowedTools） */
+  skillsEnabled?: boolean;
 }
 
 // ==================== 会话数据结构 ====================

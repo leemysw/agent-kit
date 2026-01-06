@@ -68,6 +68,7 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
       const newToolCalls = extractToolCalls(backendMsg);
 
       if (newMessage) {
+        // console.debug('[useAgentSession] Received message:', newMessage)
         setMessages(prev => {
           // 1. 处理流式消息 (StreamEvent)
           if ('type' in newMessage && !('role' in newMessage)) {

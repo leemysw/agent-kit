@@ -67,6 +67,10 @@ export function MessageItem(
     for (const msg of assistantMessages) {
       if (!Array.isArray(msg.content)) continue;
       for (const block of msg.content) {
+        if (!block) {
+          console.debug('[assistantMessages] block is null or undefined')
+          continue;
+        }
         if (block.type === 'tool_use' && block.id) {
           if (seenToolIds.has(block.id)) continue;
           seenToolIds.add(block.id);

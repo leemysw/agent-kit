@@ -34,6 +34,7 @@ class ChatMessageProcessor:
 
         self.message_count: int = 0
         self.is_streaming: bool = False
+        self.is_streaming_tool: bool = False
         self.is_save_user_message: bool = False
         self.stream_message_id: Optional[str] = None
 
@@ -70,6 +71,10 @@ class ChatMessageProcessor:
         for a_message in messages:
             # 处理流式消息状态
             self.update_stream_state(a_message)
+
+            # 不推送流失的工具消息
+            if a_message.message_type == "stream" and self.is_streaming_tool:
+                continue
 
             # 更新parent_id（非stream消息）
             if a_message.message_type != "stream":
@@ -111,7 +116,7 @@ class ChatMessageProcessor:
         if hasattr(response_msg, 'subtype'):
             self.subtype = response_msg.subtype
 
-    def update_stream_state(self, a_message) -> None:
+    def update_stream_state(self, a_message: AMessage) -> None:
         """
         更新流式处理状态
 
@@ -126,6 +131,14 @@ class ChatMessageProcessor:
         if self.is_streaming:
             if a_message.message_type == "stream":
                 a_message.message_id = self.stream_message_id
+
+                if a_message.message.event["type"] == "content_block_start":
+                    if a_message.message.event["content_block"]["type"] == "tool_use":
+                        self.is_streaming_tool = True
+
+                if self.is_streaming_tool and a_message.message.event["type"] == "content_block_stop":
+                    self.is_streaming_tool = False
+
             elif a_message.message_type == "assistant":
                 # 交换消息ID
                 a_message.message_id, self.stream_message_id = self.stream_message_id, a_message.message_id
@@ -148,7 +161,7 @@ class ChatMessageProcessor:
             # 如果前端没有提供 round_id，则后端生成
             if not self.round_id:
                 self.round_id = str(uuid.uuid4())
-            
+
             user_message = AMessage(
                 agent_id=self.agent_id,
                 round_id=self.round_id,
