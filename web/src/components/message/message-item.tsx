@@ -117,7 +117,7 @@ export function MessageItem(
         ? `↑ ${resultMessage.usage.inputTokens} ↓ ${resultMessage.usage.outputTokens}`
         : null,
       cost: resultMessage.totalCostUsd !== undefined
-        ? `$ ${resultMessage.totalCostUsd.toFixed(4)}`
+        ? `$ ${resultMessage.totalCostUsd ? resultMessage.totalCostUsd.toFixed(4) : null}`
         : null,
       cacheHit: cacheHit && cacheHit > 0 ? `💾 ${cacheHit}` : null,
     };

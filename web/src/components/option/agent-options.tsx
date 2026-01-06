@@ -42,7 +42,7 @@ type TabKey = 'basic' | 'prompt' | 'tools' | 'skills' | 'advanced';
 // 预定义的模型列表
 const AVAILABLE_MODELS = [
   {value: 'deepseek-chat', label: 'DeepSeek Chat | 深度求索'},
-  {value: 'glm-4.6', label: 'GLM 4.6'},
+  {value: 'glm-4.7', label: 'GLM 4.6'},
   {value: 'claude-3-5-sonnet', label: 'Claude 3.5 Sonnet'},
   {value: 'claude-3-opus', label: 'Claude 3 Opus'},
   {value: 'claude-3-haiku', label: 'Claude 3 Haiku'},

@@ -19,6 +19,9 @@ build/
 # ai
 **/CLAUDE.md
 
+# tests
+tests
+
 # Logs
 logs/
 *.log

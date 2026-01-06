@@ -5,7 +5,7 @@ FROM node:25-alpine AS builder
 # 构建时环境变量 - 这些会被 docker-compose 中的环境变量覆盖
 ENV NEXT_PUBLIC_WS_URL=ws://localhost/agent/v1/chat/ws \
     NEXT_PUBLIC_API_URL=http://localhost/agent/v1 \
-    NEXT_PUBLIC_DEFAULT_MODEL=glm-4.6 \
+    NEXT_PUBLIC_DEFAULT_MODEL=glm-4.7 \
     NEXT_PUBLIC_DEFAULT_CWD=/opt/app/playground
 
 # 设置工作目录

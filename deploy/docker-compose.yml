@@ -35,7 +35,7 @@ services:
       args:
         - NEXT_PUBLIC_WS_URL=ws://localhost/agent/v1/chat/ws
         - NEXT_PUBLIC_API_URL=http://localhost/agent/v1
-        - NEXT_PUBLIC_DEFAULT_MODEL=glm-4.6
+        - NEXT_PUBLIC_DEFAULT_MODEL=glm-4.7
         - NEXT_PUBLIC_DEFAULT_CWD=/opt/app/playground
     image: ${IMAGE:-leemysw/agent-kit}:web-${TAG}
     restart: always

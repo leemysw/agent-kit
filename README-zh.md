@@ -169,7 +169,7 @@ cp example.env .env
 # Claude API 配置
 ANTHROPIC_API_KEY=your_api_key_here
 ANTHROPIC_BASE_URL=https://api.anthropic.com or https://open.bigmodel.cn/api/anthropic
-ANTHROPIC_MODEL=claude-3-5-sonnet-20241022 or glm-4.6
+ANTHROPIC_MODEL=claude-3-5-sonnet-20241022 or glm-4.7
 
 # 服务器配置
 HOST=0.0.0.0
@@ -198,7 +198,7 @@ cp example.env .env.local
 NEXT_PUBLIC_API_URL=http://localhost:8010/agent/v1
 NEXT_PUBLIC_WS_URL=ws://localhost:8010/agent/v1/chat/ws
 NEXT_PUBLIC_DEFAULT_CWD=/opt/app/playground
-NEXT_PUBLIC_DEFAULT_MODEL=glm-4.6
+NEXT_PUBLIC_DEFAULT_MODEL=glm-4.7
 ```
 
 **4️⃣ 运行项目**
@@ -285,7 +285,7 @@ agent-kit/
 |----------------------|---------------|-----------------------------|
 | `ANTHROPIC_API_KEY`  | Claude API 密钥 | -                           |
 | `ANTHROPIC_BASE_URL` | API 基础 URL    | `https://api.anthropic.com` |
-| `ANTHROPIC_MODEL`    | 使用的模型         | `glm-4.6`                   |
+| `ANTHROPIC_MODEL`    | 使用的模型         | `glm-4.7`                   |
 | `HOST`               | 服务器主机         | `0.0.0.0`                   |
 | `PORT`               | 服务器端口         | `8010`                      |
 | `DEBUG`              | 调试模式          | `false`                     |
@@ -298,7 +298,7 @@ agent-kit/
 | `NEXT_PUBLIC_API_URL`       | 后端 API 地址    | `http://localhost:8010/agent/v1`       |
 | `NEXT_PUBLIC_WS_URL`        | WebSocket 地址 | `ws://localhost:8010/agent/v1/chat/ws` |
 | `NEXT_PUBLIC_DEFAULT_CWD`   | 工作目录         | `/opt/app/playground`                  |
-| `NEXT_PUBLIC_DEFAULT_MODEL` | 默认模型         | `glm-4.6`                              |
+| `NEXT_PUBLIC_DEFAULT_MODEL` | 默认模型         | `glm-4.7`                              |
 
 ---
 

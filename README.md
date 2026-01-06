@@ -165,7 +165,7 @@ cp example.env .env
 # Claude API configuration
 ANTHROPIC_API_KEY=your_api_key_here
 ANTHROPIC_BASE_URL=https://api.anthropic.com or https://open.bigmodel.cn/api/anthropic
-ANTHROPIC_MODEL=claude-3-5-sonnet-20241022 or glm-4.6
+ANTHROPIC_MODEL=claude-3-5-sonnet-20241022 or glm-4.7
 
 # Server configuration
 HOST=0.0.0.0
@@ -194,7 +194,7 @@ cp example.env .env.local
 NEXT_PUBLIC_API_URL=http://localhost:8010/agent/v1
 NEXT_PUBLIC_WS_URL=ws://localhost:8010/agent/v1/chat/ws
 NEXT_PUBLIC_DEFAULT_CWD=/opt/app/playground
-NEXT_PUBLIC_DEFAULT_MODEL=glm-4.6
+NEXT_PUBLIC_DEFAULT_MODEL=glm-4.7
 ```
 
 **4️⃣ Run the project**
@@ -281,7 +281,7 @@ agent-kit/
 |------------|------------|--------------|
 | `ANTHROPIC_API_KEY` | Claude API key | - |
 | `ANTHROPIC_BASE_URL` | API base URL | `https://api.anthropic.com` |
-| `ANTHROPIC_MODEL` | Model to use | `glm-4.6` |
+| `ANTHROPIC_MODEL` | Model to use | `glm-4.7` |
 | `HOST` | Server host | `0.0.0.0` |
 | `PORT` | Server port | `8010` |
 | `DEBUG` | Debug mode | `false` |
@@ -294,7 +294,7 @@ agent-kit/
 | `NEXT_PUBLIC_API_URL` | Backend API URL | `http://localhost:8010/agent/v1` |
 | `NEXT_PUBLIC_WS_URL` | WebSocket URL | `ws://localhost:8010/agent/v1/chat/ws` |
 | `NEXT_PUBLIC_DEFAULT_CWD` | Working directory | `/opt/app/playground` |
-| `NEXT_PUBLIC_DEFAULT_MODEL` | Default model | `glm-4.6` |
+| `NEXT_PUBLIC_DEFAULT_MODEL` | Default model | `glm-4.7` |
 
 ---
 
