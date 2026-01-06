@@ -40,9 +40,6 @@ class MessageHistoryStore:
 
             # 保存消息
             success = await session_repository.create_message(message=message)
-
-            if success:
-                logger.debug(f"💾 保存消息成功: {message.message_id}")
             return success
 
         except Exception as e:
@@ -98,8 +95,6 @@ class MessageHistoryStore:
                     title=title or 'New Chat',
                     options=options
                 )
-                if success:
-                    logger.info(f"✅ 创建会话记录: agent_id={agent_id}, session_id={session_id}")
                 return success
             else:
                 # 更新会话
@@ -109,8 +104,6 @@ class MessageHistoryStore:
                     title=title,
                     options=options
                 )
-                if success:
-                    logger.info(f"🔄 更新会话记录: agent_id={agent_id}")
                 return success
 
         except Exception as e:

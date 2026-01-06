@@ -153,13 +153,15 @@ class SDKMessageProcessor:
             session_id: 会话ID（可选）
         """
         # 获取当前时间戳
+        is_stream_event = isinstance(message, StreamEvent)
         timestamp = datetime.now().strftime("%H:%M:%S")
 
         # 打印头部信息
-        if session_id:
-            print(f"🕐 [{timestamp}] 📋 Session: {session_id} - ", end="")
-        else:
-            print(f"🕐 [{timestamp}] 📋 Agent Message - ", end="")
+        if not is_stream_event:
+            if session_id:
+                print(f"🕐 [{timestamp}] 📋 Session: {session_id} - ", end="")
+            else:
+                print(f"🕐 [{timestamp}] 📋 Agent Message - ", end="")
 
         # 直接使用原始消息，不经过 process_message
         if isinstance(message, AssistantMessage):
@@ -177,8 +179,9 @@ class SDKMessageProcessor:
             print(f"❓ 未知消息类型: {type(message)}")
             self._print_pretty_json(asdict(message))
 
-        print("=" * 80)
-        print()
+        if not is_stream_event:
+            print("=" * 80)
+            print()
 
     @staticmethod
     def _print_block(block: ContentBlock) -> None:

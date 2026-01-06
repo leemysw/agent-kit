@@ -42,7 +42,7 @@ type TabKey = 'basic' | 'prompt' | 'tools' | 'skills' | 'advanced';
 // 预定义的模型列表
 const AVAILABLE_MODELS = [
   {value: 'deepseek-chat', label: 'DeepSeek Chat | 深度求索'},
-  {value: 'glm-4.7', label: 'GLM 4.6'},
+  {value: 'glm-4.7', label: 'GLM 4.7'},
   {value: 'claude-3-5-sonnet', label: 'Claude 3.5 Sonnet'},
   {value: 'claude-3-opus', label: 'Claude 3 Opus'},
   {value: 'claude-3-haiku', label: 'Claude 3 Haiku'},
@@ -51,19 +51,31 @@ const AVAILABLE_MODELS = [
 // 权限模式选项
 const PERMISSION_MODES = [
   {value: 'default', label: '默认（继续前询问）', description: '只读工具会自动预先授权，其它操作仍需权限。'},
-  {value: 'planning', label: '规划模式', description: '继承默认的只读工具集，并会在执行行为前呈现计划。'},
-  {value: 'auto_edit', label: '自动授权文件编辑', description: '默认的只读工具会自动预先授权，但执行仍被禁用。'},
-  {value: 'skip_all', label: '跳过所有权限检查', description: '所有工具都会在无审批情况下执行。'},
+  {value: 'plan', label: '规划模式', description: '继承默认的只读工具集，并会在执行行为前呈现计划。'},
+  {value: 'acceptEdits', label: '自动授权文件编辑', description: '默认的只读工具会自动预先授权，但执行仍被禁用。'},
+  {value: 'bypassPermissions', label: '跳过所有权限检查', description: '所有工具都会在无审批情况下执行。'},
 ] as const;
 
 // 常用工具列表（硬编码，后续可从API获取）
+// 'Task', 'TaskOutput', 'Bash', 'Glob', 'Grep', 'ExitPlanMode', 'Read', 'Edit', 'Write', 'NotebookEdit', 'WebFetch', 'TodoWrite', 'WebSearch', 'KillShell', 'AskUserQuestion', 'Skill', 'EnterPlanMode'
 const AVAILABLE_TOOLS = [
+  {name: 'Task', description: 'Executes tasks'},
+  {name: 'TaskOutput', description: 'Displays task output'},
   {name: 'Bash', description: 'Executes shell commands in your environment'},
-  {name: 'Write', description: 'Creates or overwrites files'},
-  {name: 'WebSearch', description: 'Performs web searches with domain filtering'},
-  {name: 'Edit', description: 'Edits files'},
+  {name: 'Glob', description: 'Matches file names and patterns'},
+  {name: 'Grep', description: 'Searches for patterns in files'},
+  {name: 'ExitPlanMode', description: 'Exits planning mode'},
   {name: 'Read', description: 'Reads files'},
-  {name: 'List', description: 'Lists directory contents'},
+  {name: 'Edit', description: 'Edits files'},
+  {name: 'Write', description: 'Creates or overwrites files'},
+  {name: 'NotebookEdit', description: 'Edits Jupyter Notebooks'},
+  {name: 'WebFetch', description: 'Fetches web pages'},
+  {name: 'TodoWrite', description: 'Creates or updates to-do lists'},
+  {name: 'WebSearch', description: 'Performs web searches with domain filtering'},
+  {name: 'KillShell', description: 'Kills the shell process'},
+  {name: 'AskUserQuestion', description: 'Asks the user a question'},
+  {name: 'Skill', description: 'Executes a skill'},
+  {name: 'EnterPlanMode', description: 'Enters planning mode'}
 ];
 
 // ==================== 主组件 ====================

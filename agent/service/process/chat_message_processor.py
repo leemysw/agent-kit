@@ -54,7 +54,7 @@ class ChatMessageProcessor:
 
         # 获取session_id并建立映射关系，保存用户消息（如果是第一次）
         self.set_subtype(response_msg)
-        self.set_session_id(response_msg)
+        await self.set_session_id(response_msg)
         await self.save_user_message(self.query)
 
         # 转换为AMessage对象并处理
@@ -86,7 +86,7 @@ class ChatMessageProcessor:
 
         return processed_messages
 
-    def set_session_id(self, response_msg: Message) -> Optional[str]:
+    async def set_session_id(self, response_msg: Message) -> Optional[str]:
         """
         处理session映射关系
 
@@ -101,7 +101,7 @@ class ChatMessageProcessor:
                 raise ValueError("⚠️When session_id is None, response_msg must be a SystemMessage")
 
             # 建立映射关系并更新数据库
-            session_manager.register_sdk_session(agent_id=self.agent_id, session_id=self.session_id)
+            await session_manager.register_sdk_session(agent_id=self.agent_id, session_id=self.session_id)
             # 注意：这里不直接更新数据库，而是返回给调用者处理
             logger.debug(f"🔗需要建立映射: agent_id={self.agent_id} ↔ sdk_session={self.session_id}")
 
@@ -179,6 +179,5 @@ class ChatMessageProcessor:
             )
 
             await session_store.save_message(user_message)
-            await session_manager.increment_message_count(self.agent_id)
 
             self.is_save_user_message = True

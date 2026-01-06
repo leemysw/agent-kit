@@ -90,10 +90,7 @@ async def update_session(agent_id: str, request: UpdateSessionRequest):
     if request.options is not None:
 
         # 更新内存中的session manager（重置ClaudeSDKClient）
-        update_success = await session_manager.update_session_options(
-            agent_id=agent_id,
-            options=request.options
-        )
+        update_success = await session_manager.update_session_options(agent_id=agent_id)
         if not update_success:
             raise HTTPException(
                 status_code=409,

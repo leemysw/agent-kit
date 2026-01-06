@@ -11,7 +11,7 @@
 import asyncio
 from typing import Any, Dict
 
-from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
+from claude_agent_sdk import ClaudeSDKClient
 from claude_agent_sdk import PermissionResult, ToolPermissionContext
 
 from agent.service.handler.base_handler import BaseHandler
@@ -131,7 +131,7 @@ class ChatHandler(BaseHandler):
         逻辑：
         1. 检查session_manager中是否已有client
         2. 有 → 直接返回
-        3. 无 → 查询数据库判断新建/恢复
+        3. 无 → 查询数据库获取配置，创建新client
 
         Args:
             agent_id: 会话ID
@@ -145,37 +145,30 @@ class ChatHandler(BaseHandler):
             logger.debug(f"♻️ 复用现有session: {agent_id}")
             return client
 
-        # 2. 查询数据库
+        # 2. 查询数据库获取session配置
         existing_session = await session_store.get_session_info(agent_id)
 
+        # 3. 从数据库获取配置，如果没有则使用默认配置
+        session_options = None
         session_id = None
-        if existing_session and existing_session.session_id:
-            # 历史会话，需要恢复
-            session_id = existing_session.session_id
-            logger.info(f"🔄恢复历史会话: agent_id={agent_id}, sdk_session={session_id}")
-        else:
-            # 新会话
-            logger.info(f"✨创建新会话: agent_id={agent_id}")
-
-        # 3. 创建或恢复client
-        # 从session options中获取配置
-        session_options = {}
-        if existing_session and existing_session.options:
+        if existing_session:
             session_options = existing_session.options
+            session_id = existing_session.session_id
 
-        # 创建权限回调
+        # 4. 创建权限回调
         async def can_use_tool(name: str, data: dict[str, Any], context: ToolPermissionContext) -> PermissionResult:
             return await self.permission_handler.request_permission(agent_id, name, data)
 
-        options = ClaudeAgentOptions(can_use_tool=can_use_tool, **session_options)
+        # 5. 创建client（传递配置）
         client = await session_manager.create_session(
             agent_id=agent_id,
-            session_id=session_id,  # None表示新建，有值表示恢复
-            options=options,
+            can_use_tool=can_use_tool,
+            session_id=session_id,
+            session_options=session_options,
         )
 
-        # 4. 连接SDK
+        # 6. 连接SDK
         await client.connect()
 
-        logger.info(f"✅ Client准备就绪: agent_id={agent_id}, session_id={session_id}, options={options}")
+        logger.info(f"✅ Client准备就绪: agent_id={agent_id}, session_id={session_id}")
         return client

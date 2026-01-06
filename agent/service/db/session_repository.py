@@ -21,7 +21,6 @@ from agent.shared.database.async_sqlalchemy import db
 from agent.utils.logger import logger
 
 
-
 class SessionRepository:
     """会话数据仓库"""
 
@@ -89,7 +88,7 @@ class SessionRepository:
         try:
             async with db.session() as db_session:
                 # 构建更新数据
-                update_data = {'last_activity': datetime.now(timezone.utc)}
+                update_data = {}
 
                 if session_id is not None:
                     update_data['session_id'] = session_id
@@ -97,6 +96,8 @@ class SessionRepository:
                     update_data['title'] = title
                 if options is not None:
                     update_data['options'] = options
+
+                update_data['last_activity'] = datetime.now(timezone.utc)
 
                 # 执行更新
                 stmt = (
@@ -284,7 +285,7 @@ class SessionRepository:
             async with db.session() as db_session:
                 # 检查是否已存在相同 message_id 的记录
                 existing = await db_session.get(Message, message.message_id)
-                
+
                 if existing:
                     # 更新现有记录（upsert）
                     existing.message = asdict(message.message)

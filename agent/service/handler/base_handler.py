@@ -24,12 +24,15 @@ class BaseHandler(ABC):
 
     async def send(self, message: Union[AEvent, AError, AMessage]) -> None:
         """发送消息到前端"""
-        logger.debug(f"💬发送消息: {message}")
         message = message.model_dump()
         message["timestamp"] = message["timestamp"].isoformat()
         await self.websocket.send_json(message)
-        print("x" * 80)
-        print()
+
+        if isinstance(message, AMessage):
+            if message.message_type != "stream":
+                logger.debug(f"💬发送消息: {message}")
+                print("x" * 80)
+                print()
 
     def create_error_response(
             self, error_type: str, message: str,
