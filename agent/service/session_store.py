@@ -192,6 +192,23 @@ class MessageHistoryStore:
             logger.error(f"❌ 删除轮次失败: {e}")
             return -1
 
+    async def get_latest_round_id(self, agent_id: str) -> str | None:
+        """
+        获取指定 agent_id 最新的 round_id
+
+        Args:
+            agent_id: 客户端会话ID
+
+        Returns:
+            str | None: 最新的 round_id，如果没有消息则返回 None
+        """
+        try:
+            round_id = await session_repository.get_latest_round_id(agent_id)
+            return round_id
+        except Exception as e:
+            logger.error(f"❌ 获取最新 round_id 失败: {e}")
+            return None
+
 
 # 全局实例
 session_store = MessageHistoryStore()

@@ -245,6 +245,31 @@ class SessionRepository:
             logger.error(f"❌ 删除轮次失败: {e}")
             return -1
 
+    async def get_latest_round_id(self, agent_id: str) -> str | None:
+        """
+        获取指定 agent_id 最新的 round_id
+
+        Args:
+            agent_id: 会话ID
+
+        Returns:
+            str | None: 最新的 round_id，如果没有消息则返回 None
+        """
+        try:
+            async with db.session() as db_session:
+                stmt = (
+                    select(Message.round_id)
+                    .where(Message.agent_id == agent_id)
+                    .order_by(Message.timestamp.desc())
+                    .limit(1)
+                )
+                result = await db_session.execute(stmt)
+                row = result.scalar_one_or_none()
+                return row
+        except Exception as e:
+            logger.error(f"❌ 获取最新 round_id 失败: {e}")
+            return None
+
     async def create_message(self, message: AMessage) -> bool:
         """
         保存消息（支持 upsert：如果 message_id 已存在则更新）
