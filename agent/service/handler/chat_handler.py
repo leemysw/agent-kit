@@ -65,11 +65,11 @@ class ChatHandler(BaseHandler):
     def on_chat_task_done(agent_id: str, task: asyncio.Task) -> None:
         """chat任务完成回调"""
         if task.cancelled():
-            logger.info(f"🛑 chat任务被取消: {agent_id}")
+            logger.info(f"🛑chat任务被取消: {agent_id}")
         elif task.exception():
-            logger.error(f"❌ chat任务异常: {agent_id}, error={task.exception()}")
+            logger.error(f"❌chat任务异常: {agent_id}, error={task.exception()}")
         else:
-            logger.debug(f"✅ chat任务完成: {agent_id}")
+            logger.debug(f"✅chat任务完成: {agent_id}")
 
     async def handle_chat_message(self, message: Dict[str, Any]) -> None:
         """
@@ -152,10 +152,10 @@ class ChatHandler(BaseHandler):
         if existing_session and existing_session.session_id:
             # 历史会话，需要恢复
             session_id = existing_session.session_id
-            logger.info(f"🔄 恢复历史会话: agent_id={agent_id}, sdk_session={session_id}")
+            logger.info(f"🔄恢复历史会话: agent_id={agent_id}, sdk_session={session_id}")
         else:
             # 新会话
-            logger.info(f"✨ 创建新会话: agent_id={agent_id}")
+            logger.info(f"✨创建新会话: agent_id={agent_id}")
 
         # 3. 创建或恢复client
         # 从session options中获取配置

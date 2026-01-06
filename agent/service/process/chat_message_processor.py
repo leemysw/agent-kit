@@ -11,7 +11,7 @@
 import uuid
 from typing import Optional
 
-from claude_agent_sdk import Message, SystemMessage, UserMessage
+from claude_agent_sdk import Message, ResultMessage, SystemMessage, UserMessage
 
 from agent.service.process.sdk_message_processor import sdk_message_processor
 from agent.service.schema.model_message import AMessage
@@ -115,6 +115,12 @@ class ChatMessageProcessor:
 
         if hasattr(response_msg, 'subtype'):
             self.subtype = response_msg.subtype
+
+        if isinstance(response_msg, ResultMessage):
+            if response_msg.subtype == "success":
+                self.subtype = "success"
+            else:
+                self.subtype = "error"
 
     def update_stream_state(self, a_message: AMessage) -> None:
         """
