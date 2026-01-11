@@ -49,7 +49,7 @@ class SessionManager:
     async def create_session(
             self,
             agent_id: str,
-            can_use_tool: CanUseTool,
+            can_use_tool: Optional[CanUseTool],
             session_id: Optional[str] = None,
             session_options: Optional[Dict[str, Any]] = None,
     ) -> ClaudeSDKClient:

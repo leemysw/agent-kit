@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, Copy, Edit2, Terminal, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ContentBlock, Message, ResultMessage } from "@/types/message";
+import { UserQuestionAnswer } from "@/types/ask-user-question";
 import { ContentRenderer } from "./content-renderer";
 import { MessageStats } from "@/components/header/message-stats";
 
@@ -23,7 +24,8 @@ interface MessageItemProps {
     tool_name: string;
     tool_input: Record<string, any>;
   } | null;
-  onPermissionResponse?: (decision: 'allow' | 'deny') => void;
+  /** 权限响应回调（也用于 AskUserQuestion） */
+  onPermissionResponse?: (decision: 'allow' | 'deny', userAnswers?: UserQuestionAnswer[]) => void;
   hiddenToolNames?: string[];
   onDelete?: (roundId: string) => Promise<void>;
   onRegenerate?: (roundId: string) => Promise<void>;
@@ -52,11 +54,11 @@ export function MessageItem(
   const [isRegenerating, setIsRegenerating] = useState(false);
 
   // 分离消息
-  const {userMessage, assistantMessages, resultMessage} = useMemo(() => {
+  const { userMessage, assistantMessages, resultMessage } = useMemo(() => {
     const user = messages.find(m => m.role === 'user');
     const result = messages.find(m => m.role === 'result') as ResultMessage | undefined;
     const assistant = messages.filter(m => m.role === 'assistant');
-    return {userMessage: user, assistantMessages: assistant, resultMessage: result};
+    return { userMessage: user, assistantMessages: assistant, resultMessage: result };
   }, [messages]);
 
   // 合并并去重 assistant 内容
@@ -142,7 +144,7 @@ export function MessageItem(
   // 滚动
   useEffect(() => {
     if (isLastRound && roundRef.current) {
-      roundRef.current.scrollIntoView({behavior: 'smooth', block: 'end'});
+      roundRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }
   }, [isLastRound]);
 
@@ -195,12 +197,12 @@ export function MessageItem(
   // 格式化时间
   const formatTime = (ts: number) => {
     const date = new Date(ts);
-    return date.toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit'});
+    return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
   };
 
   return (
     <div ref={roundRef}
-         className={cn("w-full space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300", className)}>
+      className={cn("w-full space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300", className)}>
 
       {/* ═══════════════════════ 用户消息 ═══════════════════════ */}
       {userMessage && (
@@ -213,14 +215,14 @@ export function MessageItem(
                 "border-accent/30 bg-gradient-to-br from-accent/5 to-transparent hover:border-accent/50"
               )}>
                 {/* Decorative Corners */}
-                <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-accent/50"/>
-                <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-accent/50"/>
-                <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-accent/50"/>
-                <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-accent/50"/>
+                <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-accent/50" />
+                <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-accent/50" />
+                <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-accent/50" />
+                <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-accent/50" />
 
                 {/* 头部 */}
                 <div className="h-7 px-3 flex items-center gap-2 border-b border-accent/10">
-                  <div className="flex-1"/>
+                  <div className="flex-1" />
 
                   {/* 操作按钮 */}
                   <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -232,7 +234,7 @@ export function MessageItem(
                       )}
                       title="复制"
                     >
-                      {copiedUser ? <Check className="w-3 h-3"/> : <Copy className="w-3 h-3"/>}
+                      {copiedUser ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                     </button>
                     {onEditUserMessage && (
                       <button
@@ -245,7 +247,7 @@ export function MessageItem(
                         className="p-1 rounded text-muted-foreground/50 hover:text-foreground transition-colors"
                         title="编辑"
                       >
-                        <Edit2 className="w-3 h-3"/>
+                        <Edit2 className="w-3 h-3" />
                       </button>
                     )}
                   </div>
@@ -257,7 +259,7 @@ export function MessageItem(
 
                   {/* 头像在右边 */}
                   <span className="text-[10px] font-medium text-accent/70">You</span>
-                  <User className="w-3 h-3 text-accent/70"/>
+                  <User className="w-3 h-3 text-accent/70" />
                 </div>
 
                 {/* 内容 */}
@@ -283,21 +285,21 @@ export function MessageItem(
                 isCompleted && "border-green-500/20"
               )}>
                 {/* Decorative Corners */}
-                <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-primary/50"/>
-                <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-primary/50"/>
-                <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-primary/50"/>
-                <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-primary/50"/>
+                <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-primary/50" />
+                <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-primary/50" />
+                <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-primary/50" />
+                <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-primary/50" />
 
                 {/* 扫描线效果 */}
                 {showCursor && (
                   <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                    <div className="absolute inset-0 animate-scan"/>
+                    <div className="absolute inset-0 animate-scan" />
                   </div>
                 )}
 
                 {/* 优雅的头部栏 */}
                 <div className="h-7 px-3 flex items-center gap-2 border-b border-primary/10">
-                  <Terminal className="w-3 h-3 text-primary/70"/>
+                  <Terminal className="w-3 h-3 text-primary/70" />
                   <span className="text-[10px] font-medium text-primary/70">Assistant</span>
 
                   {/* 时间 */}
@@ -328,7 +330,7 @@ export function MessageItem(
 
                   {/* 打字光标 */}
                   {showCursor && (
-                    <span className="inline-block w-2 h-4 ml-0.5 bg-primary/80 animate-pulse"/>
+                    <span className="inline-block w-2 h-4 ml-0.5 bg-primary/80 animate-pulse" />
                   )}
                 </div>
 
@@ -348,7 +350,7 @@ export function MessageItem(
 
                 {/* 底部进度条（流式时） */}
                 {showCursor && (
-                  <div className="h-0.5 animate-progress-bar"/>
+                  <div className="h-0.5 animate-progress-bar" />
                 )}
               </div>
             </div>

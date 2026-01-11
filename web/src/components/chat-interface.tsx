@@ -36,7 +36,7 @@ function groupMessagesByRound(messages: Message[]): Map<string, Message[]> {
   return groups;
 }
 
-export function ChatInterface({agentId: externalAgentId, onNewSession: onNewSession}: ChatInterfaceProps) {
+export function ChatInterface({ agentId: externalAgentId, onNewSession: onNewSession }: ChatInterfaceProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const {
@@ -118,9 +118,9 @@ export function ChatInterface({agentId: externalAgentId, onNewSession: onNewSess
           <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 backdrop-blur-sm">
             <div className="flex items-start gap-3">
               <svg className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24"
-                   stroke="currentColor">
+                stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
               <div className="flex-1">
                 <p className="text-sm font-medium text-destructive">无法连接到后端服务</p>
@@ -135,11 +135,11 @@ export function ChatInterface({agentId: externalAgentId, onNewSession: onNewSess
 
       {/* 如果没有agentId,显示空状态 */}
       {!externalAgentId ? (
-        <EmptyState onNewSession={onNewSession}/>
+        <EmptyState onNewSession={onNewSession} />
       ) : (
         <>
           {/* Header */}
-          <ChatHeader agentId={agentId} isLoading={isLoading} todos={todos}/>
+          <ChatHeader agentId={agentId} isLoading={isLoading} todos={todos} />
 
           {/* Messages Area */}
           <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-8 relative z-0 scroll-smooth">

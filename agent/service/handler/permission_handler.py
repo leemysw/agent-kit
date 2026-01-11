@@ -80,7 +80,27 @@ class PermissionHandler(BaseHandler):
             if decision == "allow":
                 logger.info(f"✅ 权限允许: {tool_name}")
 
-                return PermissionResultAllow(updated_input=input_data)
+                # 如果是 AskUserQuestion，构建 SDK 要求的 answers 格式
+                updated_input = input_data.copy()
+                if tool_name == "AskUserQuestion" and "user_answers" in response:
+                    user_answers = response["user_answers"]
+                    questions = input_data.get("questions", [])
+
+                    # 构建 {question_text: selected_labels} 格式
+                    answers = {}
+                    for answer in user_answers:
+                        question_idx = answer.get("questionIndex", 0)
+                        selected_options = answer.get("selectedOptions", [])
+
+                        if 0 <= question_idx < len(questions):
+                            question_text = questions[question_idx].get("question", "")
+                            # 多选用 ", " 连接
+                            answers[question_text] = ", ".join(selected_options)
+
+                    updated_input["answers"] = answers
+                    logger.info(f"📝 AskUserQuestion 用户回答: {answers}")
+
+                return PermissionResultAllow(updated_input=updated_input)
             else:
                 logger.info(f"❌ 权限拒绝: {tool_name}")
                 return PermissionResultDeny(message=response.get("message", "User denied permission"))
@@ -104,10 +124,18 @@ class PermissionHandler(BaseHandler):
             return
 
         # 保存响应
-        self._permission_responses[request_id] = {
+        response_data = {
             "decision": message.get("decision", "deny"),
             "message": message.get("message", "")
         }
+
+        # 如果是 AskUserQuestion 的回答，直接保存原始用户答案
+        user_answers = message.get("user_answers")
+        if user_answers:
+            response_data["user_answers"] = user_answers
+            logger.debug(f"📝 收到 AskUserQuestion 用户答案: {user_answers}")
+
+        self._permission_responses[request_id] = response_data
 
         # 触发等待事件
         if request_id in self._permission_requests:

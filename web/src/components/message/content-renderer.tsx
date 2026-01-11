@@ -2,8 +2,10 @@
 
 import { MarkdownRenderer } from './markdown-renderer';
 import { ToolBlock } from './block/tool-block';
+import { AskUserQuestionBlock } from './block/ask-user-question-block';
 import { CodeBlock } from './block/code-block';
 import { ContentBlock } from '@/types/message';
+import { UserQuestionAnswer } from '@/types/ask-user-question';
 import { cn } from '@/lib/utils';
 
 interface ContentRendererProps {
@@ -15,8 +17,8 @@ interface ContentRendererProps {
     tool_name: string;
     tool_input: Record<string, any>;
   } | null;
-  /** 权限响应回调 */
-  onPermissionResponse?: (decision: 'allow' | 'deny') => void;
+  /** 权限响应回调（也用于 AskUserQuestion） */
+  onPermissionResponse?: (decision: 'allow' | 'deny', userAnswers?: UserQuestionAnswer[]) => void;
   /** 需要隐藏的工具名称列表 */
   hiddenToolNames?: string[];
 }
@@ -31,7 +33,7 @@ export function ContentRenderer(
   }: ContentRendererProps) {
   // Handle string content (Markdown)
   if (typeof content === 'string') {
-    return <MarkdownRenderer content={content} isStreaming={isStreaming}/>;
+    return <MarkdownRenderer content={content} isStreaming={isStreaming} />;
   }
 
   // Handle structured content (ContentBlock[])
@@ -42,7 +44,7 @@ export function ContentRenderer(
   // 第一遍：收集所有 tool_use 和对应的 tool_result
   content.forEach((block, index) => {
     if (block.type === 'tool_use') {
-      toolUseMap.set(block.id, {use: block, index});
+      toolUseMap.set(block.id, { use: block, index });
     }
   });
 
@@ -68,12 +70,32 @@ export function ContentRenderer(
         if (block.type === 'text') {
           return (
             <div key={index}>
-              <ContentRenderer content={block.text} isStreaming={isStreaming}/>
+              <ContentRenderer content={block.text} isStreaming={isStreaming} />
             </div>
           );
         }
 
         if (block.type === 'tool_use') {
+          // 特殊处理 AskUserQuestion 工具
+          if (block.name === 'AskUserQuestion') {
+            const toolData = toolUseMap.get(block.id);
+            const hasResult = !!toolData?.result;
+            // 检查是否正在等待此工具的权限请求
+            const isThisToolPending = pendingPermission && pendingPermission.tool_name === 'AskUserQuestion' && !hasResult;
+            return (
+              <div key={index}>
+                <AskUserQuestionBlock
+                  toolUse={block}
+                  isSubmitted={hasResult}
+                  onSubmit={(_, answers) => {
+                    // 发送 permission_response 并附带用户答案
+                    onPermissionResponse?.('allow', answers);
+                  }}
+                />
+              </div>
+            );
+          }
+
           // 如果工具在隐藏列表中，则不渲染
           if (hiddenToolNames.includes(block.name)) {
             return null;
@@ -131,7 +153,7 @@ export function ContentRenderer(
                     {block.content}
                   </pre>
                 ) : (
-                  <CodeBlock language="json" value={JSON.stringify(block.content, null, 2)}/>
+                  <CodeBlock language="json" value={JSON.stringify(block.content, null, 2)} />
                 )}
               </div>
             </div>

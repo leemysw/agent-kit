@@ -3,6 +3,7 @@
  */
 
 import { Message, ToolCall, AgentId } from '@/types';
+import { UserQuestionAnswer } from '@/types/ask-user-question';
 
 // ==================== Hook 选项 ====================
 
@@ -38,5 +39,6 @@ export interface UseAgentSessionReturn {
         tool_name: string;
         tool_input: Record<string, any>;
     } | null;
-    sendPermissionResponse: (decision: 'allow' | 'deny') => void;
+    /** 权限响应（也用于 AskUserQuestion） */
+    sendPermissionResponse: (decision: 'allow' | 'deny', userAnswers?: UserQuestionAnswer[]) => void;
 }

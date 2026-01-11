@@ -8,6 +8,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useWebSocket } from '@/lib/websocket';
 import { useSessionStore } from '@/store/session';
 import { AgentId, Message, ToolCall, UserMessage } from '@/types';
+import { UserQuestionAnswer } from '@/types/ask-user-question';
 import { UseAgentSessionOptions, UseAgentSessionReturn } from './types';
 import { convertBackendMessage, extractToolCalls } from './message-converter';
 import {
@@ -39,7 +40,7 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
   } | null>(null);
 
   // Store
-  const {getSession, updateSession} = useSessionStore();
+  const { getSession, updateSession } = useSessionStore();
 
   // Refs
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -98,7 +99,7 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
               return prev;
             }
 
-            const updatedMsg = {...lastMsg} as any;
+            const updatedMsg = { ...lastMsg } as any;
             updatedMsg.content = [...updatedMsg.content];
 
             if (event.type === 'content_block_start') {
@@ -185,7 +186,7 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
                   // 找到了，计算实际索引
                   const actualIndex = prev.length - 1 - targetIndex;
                   const newMessages = [...prev];
-                  const targetMessage = {...newMessages[actualIndex]} as any;
+                  const targetMessage = { ...newMessages[actualIndex] } as any;
 
                   // 合并 content
                   targetMessage.content = [...targetMessage.content, ...toolResultContent];
@@ -239,7 +240,7 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
   }, [agentId]);
 
   // WebSocket
-  const {state: wsState, send: wsSend} = useWebSocket({
+  const { state: wsState, send: wsSend } = useWebSocket({
     url: wsUrl,
     autoConnect: true,  // 启用自动连接
     reconnect: true,
@@ -327,7 +328,7 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
 
     // 发送到后端
     if (agentId && wsSend) {
-      const interruptMsg = {type: 'interrupt', agent_id: agentId};
+      const interruptMsg = { type: 'interrupt', agent_id: agentId };
       console.debug('[useAgentSession] 发送停止消息:', interruptMsg);
       console.debug('[useAgentSession] WebSocket 状态:', wsState);
 
@@ -349,14 +350,13 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
     setToolCalls([]);
 
   }, [agentId, wsSend, wsState]);
-
   /**
-   * 发送权限响应
+   * 发送权限响应（也用于 AskUserQuestion）
    */
-  const sendPermissionResponse = useCallback((decision: 'allow' | 'deny') => {
+  const sendPermissionResponse = useCallback((decision: 'allow' | 'deny', userAnswers?: UserQuestionAnswer[]) => {
     if (!pendingPermission) return;
 
-    const response = {
+    const response: Record<string, any> = {
       type: 'permission_response',
       request_id: pendingPermission.request_id,
       agent_id: agentId,
@@ -364,8 +364,13 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
       message: decision === 'deny' ? 'User denied permission' : '',
     };
 
+    // 如果是 AskUserQuestion，附带用户答案
+    if (userAnswers && userAnswers.length > 0) {
+      response.user_answers = userAnswers;
+    }
+
     console.debug('[useAgentSession] Sending permission response:', response);
-    wsSend(response);
+    wsSend(response as any);
     setPendingPermission(null);
   }, [pendingPermission, agentId, wsSend]);
 
