@@ -174,6 +174,13 @@ DEBUG=true
 WORKERS=1
 ```
 
+**Initialize database:**
+
+```bash
+# Run database migrations to create tables
+alembic upgrade head
+```
+
 **3️⃣ Frontend setup**
 
 ```bash

@@ -178,6 +178,13 @@ DEBUG=true
 WORKERS=1
 ```
 
+**初始化数据库：**
+
+```bash
+# 运行数据库迁移，创建数据表
+alembic upgrade head
+```
+
 **3️⃣ 前端设置**
 
 ```bash
