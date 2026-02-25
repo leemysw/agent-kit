@@ -3,15 +3,17 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## 架构概述
-**AI 聊天应用**: FastAPI 后端 + Next.js 前端 + WebSocket 实时通信
+**AI 聊天应用**: FastAPI 后端 + Next.js 前端 + WebSocket 实时通信 + 多通道消息
 **核心目录:**
 - `agent/` - Python 后端 (FastAPI, WebSocket, 数据库)
+- `agent/service/channel/` - 消息通道抽象层 (WebSocket/Discord/Telegram)
 - `web/src/` - Next.js 前端 (React, TypeScript, Zustand)
 - `alembic/` - 数据库迁移
 **技术栈:**
 - 后端: FastAPI + async SQLite + Alembic
 - 前端: Next.js 14 + TypeScript + Tailwind CSS
 - 实时通信: WebSocket
+- 消息通道: Discord (discord.py) + Telegram (python-telegram-bot)
 - AI 集成: Claude Agent SDK
 
 ## 核心 API
@@ -23,6 +25,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 配置说明
 **后端 (.env):**
+- `DISCORD_ENABLED` / `DISCORD_BOT_TOKEN` / `DISCORD_ALLOWED_GUILDS` / `DISCORD_TRIGGER_WORD`
+- `TELEGRAM_ENABLED` / `TELEGRAM_BOT_TOKEN` / `TELEGRAM_ALLOWED_USERS`
 **前端 (.env.local):**
 
 ## 开发文档索引

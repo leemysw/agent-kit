@@ -79,6 +79,18 @@ class Settings(BaseSettings):
     ANTHROPIC_BASE_URL: str = ""
     ANTHROPIC_MODEL: str = ""
 
+    # =====================================================
+    # 消息通道配置
+    # =====================================================
+    DISCORD_ENABLED: bool = False
+    DISCORD_BOT_TOKEN: str = ""
+    DISCORD_ALLOWED_GUILDS: str = ""  # 逗号分隔的 Guild ID
+    DISCORD_TRIGGER_WORD: str = ""
+
+    TELEGRAM_ENABLED: bool = False
+    TELEGRAM_BOT_TOKEN: str = ""
+    TELEGRAM_ALLOWED_USERS: str = ""  # 逗号分隔的 User ID
+
     model_config = SettingsConfigDict(
         env_file=os.path.abspath(ENV_FILE),
         env_file_encoding="utf-8",

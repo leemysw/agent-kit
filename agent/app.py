@@ -15,8 +15,12 @@ from fastapi import FastAPI
 
 from agent.api.router import api_router
 from agent.core.config import settings
+from agent.service.channel.channel_manager import ChannelManager
 from agent.shared.server.register import register_exception, register_hook, register_middleware
 from agent.utils.logger import logger
+
+# 全局通道管理器
+channel_manager = ChannelManager()
 
 
 @asynccontextmanager
@@ -28,13 +32,55 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.error(f"Failed to connect to database: {e}")
 
+        # 注册并启动消息通道
+        await _register_channels()
+
         gc.collect()
         gc.freeze()
 
         yield
 
     finally:
+        await channel_manager.stop_all()
         logger.info("Model shutdown complete.")
+
+
+async def _register_channels() -> None:
+    """按配置注册消息通道"""
+    if settings.DISCORD_ENABLED:
+        try:
+            from agent.service.channel.discord_channel import DiscordChannel
+
+            guild_ids = None
+            if settings.DISCORD_ALLOWED_GUILDS:
+                guild_ids = {int(g.strip()) for g in settings.DISCORD_ALLOWED_GUILDS.split(",") if g.strip()}
+
+            discord_channel = DiscordChannel(
+                bot_token=settings.DISCORD_BOT_TOKEN,
+                trigger_word=settings.DISCORD_TRIGGER_WORD,
+                allowed_guild_ids=guild_ids,
+            )
+            channel_manager.register(discord_channel)
+        except ImportError:
+            logger.warning("⚠️ discord.py 未安装，跳过 Discord 通道。安装: pip install discord.py")
+
+    if settings.TELEGRAM_ENABLED:
+        try:
+            from agent.service.channel.telegram_channel import TelegramChannel
+
+            user_ids = None
+            if settings.TELEGRAM_ALLOWED_USERS:
+                user_ids = {int(u.strip()) for u in settings.TELEGRAM_ALLOWED_USERS.split(",") if u.strip()}
+
+            telegram_channel = TelegramChannel(
+                bot_token=settings.TELEGRAM_BOT_TOKEN,
+                allowed_user_ids=user_ids,
+            )
+            channel_manager.register(telegram_channel)
+        except ImportError:
+            logger.warning("⚠️ python-telegram-bot 未安装，跳过 Telegram 通道。安装: pip install python-telegram-bot")
+
+    await channel_manager.start_all()
 
 
 

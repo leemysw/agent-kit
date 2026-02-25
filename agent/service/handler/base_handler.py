@@ -11,28 +11,18 @@
 from abc import ABC
 from typing import Any, Dict, Optional, Union
 
-from fastapi import WebSocket
-
+from agent.service.channel.channel import MessageSender
 from agent.service.schema.model_message import AError, AEvent, AMessage
-from agent.utils.logger import logger
 
 
 class BaseHandler(ABC):
 
-    def __init__(self, websocket: WebSocket):
-        self.websocket = websocket
+    def __init__(self, sender: MessageSender):
+        self.sender = sender
 
     async def send(self, message: Union[AEvent, AError, AMessage]) -> None:
-        """发送消息到前端"""
-        message = message.model_dump()
-        message["timestamp"] = message["timestamp"].isoformat()
-        await self.websocket.send_json(message)
-
-        if isinstance(message, AMessage):
-            if message.message_type != "stream":
-                logger.debug(f"💬发送消息: {message}")
-                print("x" * 80)
-                print()
+        """通过 MessageSender 协议发送消息，与传输层解耦"""
+        await self.sender.send(message)
 
     def create_error_response(
             self, error_type: str, message: str,
