@@ -18,6 +18,7 @@
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 """
 
+import json
 from dataclasses import asdict
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -33,6 +34,84 @@ from agent.utils.logger import logger
 
 class SessionRepository:
     """会话数据仓库"""
+
+    @staticmethod
+    def _to_message_dict(message_obj: Any) -> Dict[str, Any]:
+        """将消息对象转换为可序列化字典。"""
+        if message_obj is None:
+            return {}
+        if isinstance(message_obj, dict):
+            return dict(message_obj)
+        if isinstance(message_obj, str):
+            # 文本消息兜底包装，避免 asdict 对字符串报错
+            return {"content": message_obj}
+        return asdict(message_obj)
+
+    @staticmethod
+    def _coerce_payload_dict(message_type: str, payload: Any) -> Dict[str, Any]:
+        """将数据库中的任意 payload 尽可能转换为字典。"""
+        if isinstance(payload, dict):
+            return dict(payload)
+
+        if payload is None:
+            return {}
+
+        if isinstance(payload, str):
+            try:
+                parsed = json.loads(payload)
+                if isinstance(parsed, dict):
+                    return parsed
+            except Exception:
+                pass
+
+            # 历史脏数据兜底
+            if message_type in ("assistant", "user"):
+                return {"content": payload}
+            if message_type == "system":
+                return {"subtype": "info", "data": {"raw": payload}}
+            if message_type == "result":
+                return {"subtype": "error", "result": payload, "is_error": True}
+            return {}
+
+        try:
+            return SessionRepository._to_message_dict(payload)
+        except Exception:
+            return {}
+
+    @staticmethod
+    def _normalize_message_payload(message_type: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """规范化历史消息结构，兼容旧脏数据。"""
+        normalized = dict(payload or {})
+
+        if message_type == "user":
+            tool_use_result = normalized.get("tool_use_result")
+            # 兼容历史脏数据：tool_use_result 被写成了字符串
+            if isinstance(tool_use_result, str):
+                normalized["tool_use_result"] = {"error": tool_use_result}
+            elif tool_use_result is not None and not isinstance(tool_use_result, dict):
+                normalized["tool_use_result"] = {"value": tool_use_result}
+            return normalized
+
+        if message_type == "assistant":
+            # 某些历史数据缺 model，补默认值避免联合类型校验失败
+            normalized.setdefault("model", "")
+            return normalized
+
+        if message_type == "system":
+            normalized.setdefault("subtype", "info")
+            normalized.setdefault("data", {})
+            return normalized
+
+        if message_type == "result":
+            normalized.setdefault("subtype", "error" if normalized.get("is_error") else "success")
+            normalized.setdefault("duration_ms", 0)
+            normalized.setdefault("duration_api_ms", 0)
+            normalized.setdefault("num_turns", 0)
+            normalized.setdefault("session_id", "")
+            normalized.setdefault("is_error", False)
+            return normalized
+
+        return normalized
 
     # =====================================================
     # Session CRUD — 以 session_key 为主键
@@ -237,6 +316,25 @@ class SessionRepository:
             logger.error(f"❌ 获取最新 round_id 失败: {e}")
             return None
 
+    async def has_round_result(self, session_key: str, round_id: str) -> bool:
+        """检查指定轮次是否已有 result 消息。"""
+        try:
+            async with db.session() as db_session:
+                stmt = (
+                    select(func.count(Message.message_id))
+                    .where(
+                        Message.session_key == session_key,
+                        Message.round_id == round_id,
+                        Message.message_type == "result",
+                    )
+                )
+                result = await db_session.execute(stmt)
+                count = result.scalar_one() or 0
+                return count > 0
+        except Exception as e:
+            logger.error(f"❌ 检查轮次 result 失败: key={session_key}, round={round_id}, error={e}")
+            return False
+
     # =====================================================
     # Message CRUD
     # =====================================================
@@ -246,9 +344,13 @@ class SessionRepository:
         try:
             async with db.session() as db_session:
                 existing = await db_session.get(Message, message.message_id)
+                message_payload = self._normalize_message_payload(
+                    message.message_type,
+                    self._to_message_dict(message.message),
+                )
 
                 if existing:
-                    existing.message = asdict(message.message)
+                    existing.message = message_payload
                     existing.block_type = message.block_type
                     existing.timestamp = message.timestamp or datetime.now(timezone.utc)
                     logger.debug(f"📝 更新消息: {message.message_id}")
@@ -261,7 +363,7 @@ class SessionRepository:
                         session_id=message.session_id,
                         message_type=message.message_type,
                         block_type=message.block_type,
-                        message=asdict(message.message),
+                        message=message_payload,
                         parent_id=message.parent_id,
                         timestamp=message.timestamp or datetime.now(timezone.utc),
                     )
@@ -292,8 +394,28 @@ class SessionRepository:
                 )
                 result = await db_session.execute(stmt)
                 messages = result.scalars().all()
-
-                message_list = [AMessage.model_validate(msg) for msg in messages]
+                message_list: List[AMessage] = []
+                for msg in messages:
+                    try:
+                        normalized_payload = self._normalize_message_payload(
+                            msg.message_type,
+                            self._coerce_payload_dict(msg.message_type, msg.message),
+                        )
+                        a_message = AMessage(
+                            session_key=msg.session_key,
+                            agent_id=msg.agent_id,
+                            round_id=msg.round_id,
+                            session_id=msg.session_id,
+                            message_id=msg.message_id,
+                            message=normalized_payload,
+                            message_type=msg.message_type,
+                            block_type=msg.block_type,
+                            parent_id=msg.parent_id,
+                            timestamp=msg.timestamp,
+                        )
+                        message_list.append(a_message)
+                    except Exception as e:
+                        logger.warning(f"⚠️ 跳过脏消息: id={msg.message_id}, type={msg.message_type}, error={e}")
                 logger.info(f"📥 加载历史消息: key={session_key}, 共{len(message_list)}条")
                 return message_list
         except Exception as e:

@@ -20,7 +20,7 @@
 
 import asyncio
 import uuid
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from claude_agent_sdk.types import ResultMessage
 
@@ -37,13 +37,16 @@ class InterruptHandler(BaseHandler):
     async def handle_interrupt(self, message: Dict[str, Any], chat_tasks: Dict[str, asyncio.Task]) -> None:
         """处理中断消息"""
         session_key = message.get("session_key") or message.get("agent_id", "")
+        round_id = message.get("round_id")
         if not session_key:
             logger.warning("⚠️ interrupt 消息缺少 session_key")
             return
 
-        asyncio.create_task(self._handle_interrupt_async(session_key, chat_tasks))
+        asyncio.create_task(self._handle_interrupt_async(session_key, chat_tasks, round_id))
 
-    async def _handle_interrupt_async(self, session_key: str, chat_tasks: Dict[str, asyncio.Task]) -> None:
+    async def _handle_interrupt_async(
+            self, session_key: str, chat_tasks: Dict[str, asyncio.Task], round_id: Optional[str] = None
+    ) -> None:
         """异步执行中断流程"""
         try:
             # 1. 调用 SDK interrupt
@@ -67,7 +70,6 @@ class InterruptHandler(BaseHandler):
                     chat_task.cancel()
                     try:
                         await chat_task
-                        await self._send_interrupt_result(session_key)
                     except asyncio.CancelledError:
                         pass
             elif chat_task and chat_task.done():
@@ -75,16 +77,25 @@ class InterruptHandler(BaseHandler):
             else:
                 logger.warning(f"⚠️ 未找到任务: {session_key}")
 
+            # 无论自然结束还是强制取消，都确保该轮有终态 result
+            await self._send_interrupt_result(session_key, round_id)
+
         except Exception as e:
             logger.error(f"❌ 中断处理失败: {e}")
 
-    async def _send_interrupt_result(self, session_key: str) -> None:
+    async def _send_interrupt_result(self, session_key: str, round_id: Optional[str] = None) -> None:
         """发送中断结果消息"""
         session_id = session_manager.get_session_id(session_key)
-        round_id = await session_store.get_latest_round_id(session_key)
+        if not round_id:
+            round_id = await session_store.get_latest_round_id(session_key)
 
         if not round_id:
             logger.warning(f"⚠️ 无法获取 round_id: key={session_key}")
+            return
+
+        # 避免重复发送 result（例如任务已经自然产出 success/error）
+        if await session_store.has_round_result(session_key, round_id):
+            logger.info(f"ℹ️ 跳过中断结果: round 已有 result, key={session_key}, round_id={round_id}")
             return
 
         result_message = AMessage(

@@ -193,6 +193,7 @@ export function MessageItem(
 
   const showCursor = isLastRound && isLoading && assistantMessages.length > 0;
   const isCompleted = hasFinalAnswer && !isLoading;
+  const canOperateRound = !!userMessage && !isLoading;
 
   // 格式化时间
   const formatTime = (ts: number) => {
@@ -273,7 +274,8 @@ export function MessageItem(
       )}
 
       {/* ═══════════════════════ 助手消息 ═══════════════════════ */}
-      {!shouldHideAssistantContent && (
+      {/* 没有可见 assistant 内容时，仍渲染容器以提供删除/重试操作 */}
+      {(!shouldHideAssistantContent || canOperateRound) && (
         <div className="w-full px-4">
           <div className="max-w-4xl mx-auto">
             <div className="group flex items-start gap-3">
@@ -335,15 +337,15 @@ export function MessageItem(
                 </div>
 
                 {/* 底部统计栏（完成后显示） */}
-                {isCompleted && stats && (
+                {canOperateRound && (
                   <MessageStats
-                    stats={stats}
+                    stats={stats || undefined}
                     showCursor={showCursor}
                     copiedAssistant={copiedAssistant}
                     isRegenerating={isRegenerating}
                     isDeleting={isDeleting}
                     onCopyAssistant={handleCopyAssistant}
-                    onRegenerate={onRegenerate && isCompleted ? handleRegenerate : undefined}
+                    onRegenerate={onRegenerate ? handleRegenerate : undefined}
                     onDelete={onDelete ? handleDelete : undefined}
                   />
                 )}

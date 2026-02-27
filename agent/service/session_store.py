@@ -123,6 +123,10 @@ class MessageHistoryStore:
         """获取最新 round_id"""
         return await session_repository.get_latest_round_id(session_key)
 
+    async def has_round_result(self, session_key: str, round_id: str) -> bool:
+        """检查指定轮次是否已有 result 消息。"""
+        return await session_repository.has_round_result(session_key, round_id)
+
 
 # 全局实例
 session_store = MessageHistoryStore()

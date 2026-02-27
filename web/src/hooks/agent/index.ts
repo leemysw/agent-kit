@@ -7,10 +7,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useWebSocket } from '@/lib/websocket';
 import { useSessionStore } from '@/store/session';
-import { AgentId, AssistantMessage, Message, ToolCall, UserMessage } from '@/types';
+import { AgentId, AssistantMessage, Message, StreamEvent, ToolCall, UserMessage } from '@/types';
 import { UserQuestionAnswer } from '@/types/ask-user-question';
 import { UseAgentSessionOptions, UseAgentSessionReturn } from './types';
-import { convertBackendMessage, extractToolCalls } from './message-converter';
 import {
   createClearSession,
   createLoadHistoryMessages,
@@ -21,6 +20,19 @@ import {
 import { deleteRound as deleteRoundApi } from '@/lib/agent-api';
 
 // ==================== Hook实现 ====================
+
+interface ConversationEventPayload {
+  event_id: string;
+  seq: number;
+  turn_id: string;
+  kind: 'message_upsert' | 'message_delta';
+  message?: Message;
+  delta?: StreamEvent;
+}
+
+function isStreamEventMessage(message: Message | StreamEvent): message is StreamEvent {
+  return 'type' in message && !('role' in message);
+}
 
 function getContentBlockKey(block: any): string | null {
   if (!block || typeof block !== 'object') {
@@ -96,6 +108,231 @@ function findAssistantMessageIndex(messages: Message[], messageId?: string): num
   return -1;
 }
 
+function createAssistantMessageFromStreamStart(
+  event: StreamEvent,
+  messageAgentId: AgentId,
+  roundId: string
+): AssistantMessage {
+  return {
+    messageId: event.messageId || crypto.randomUUID(),
+    agentId: messageAgentId,
+    roundId,
+    role: 'assistant',
+    content: [],
+    timestamp: Date.now(),
+    model: event.message?.model,
+  };
+}
+
+function applyStreamEventToAssistantMessage(
+  message: AssistantMessage,
+  event: StreamEvent
+): AssistantMessage {
+  const eventAny = event as any;
+  const updatedMessage: AssistantMessage = {
+    ...message,
+    content: [...message.content],
+  };
+
+  if (event.type === 'content_block_start' && event.content_block && typeof event.index === 'number') {
+    updatedMessage.content[event.index] = event.content_block;
+    return updatedMessage;
+  }
+
+  if (event.type === 'content_block_delta' && event.delta && typeof event.index === 'number') {
+    const block = updatedMessage.content[event.index] as any;
+    const delta = event.delta;
+    if (!block) {
+      return updatedMessage;
+    }
+
+    if (block.type === 'text' && delta.type === 'text_delta') {
+      updatedMessage.content[event.index] = {
+        ...block,
+        text: block.text + (delta.text || '')
+      };
+      return updatedMessage;
+    }
+
+    if (block.type === 'thinking' && delta.type === 'thinking_delta') {
+      updatedMessage.content[event.index] = {
+        ...block,
+        thinking: block.thinking + (delta.thinking || '')
+      };
+      return updatedMessage;
+    }
+
+    if (block.type === 'tool_use' && delta.type === 'input_json_delta') {
+      try {
+        updatedMessage.content[event.index] = {
+          ...block,
+          input: JSON.parse(delta.partial_json),
+        };
+      } catch {
+        // 忽略不完整JSON，等待后续delta
+      }
+      return updatedMessage;
+    }
+  }
+
+  if (event.type === 'message_delta') {
+    if (event.delta?.stop_reason) {
+      updatedMessage.stopReason = event.delta.stop_reason;
+    }
+    if (eventAny.usage) {
+      updatedMessage.usage = eventAny.usage;
+    }
+  }
+
+  return updatedMessage;
+}
+
+function handleStreamEventMessage(
+  messages: Message[],
+  event: StreamEvent,
+  messageAgentId: AgentId,
+  roundId: string
+): Message[] {
+  if (event.type === 'message_start') {
+    if (event.messageId) {
+      const exists = messages.some(
+        msg => msg.role === 'assistant' && msg.messageId === event.messageId
+      );
+      if (exists) {
+        return messages;
+      }
+    }
+    return [...messages, createAssistantMessageFromStreamStart(event, messageAgentId, roundId)];
+  }
+
+  const targetIndex = findAssistantMessageIndex(messages, event.messageId);
+  if (targetIndex === -1) {
+    return messages;
+  }
+
+  const assistantMessage = messages[targetIndex] as AssistantMessage;
+  const updatedMessage = applyStreamEventToAssistantMessage(assistantMessage, event);
+  const nextMessages = [...messages];
+  nextMessages[targetIndex] = updatedMessage;
+  return nextMessages;
+}
+
+function mergeToolResultMessage(messages: Message[], message: AssistantMessage): Message[] | null {
+  if (!(message as any).isToolResult) {
+    return null;
+  }
+
+  const toolResultBlock = message.content.find(
+    (block): block is Extract<AssistantMessage['content'][number], { type: 'tool_result' }> =>
+      block.type === 'tool_result'
+  );
+  if (!toolResultBlock || !toolResultBlock.tool_use_id) {
+    return null;
+  }
+
+  const reverseIndex = [...messages].reverse().findIndex(msg =>
+    msg.role === 'assistant' &&
+    Array.isArray(msg.content) &&
+    msg.content.some((block: any) => block.type === 'tool_use' && block.id === toolResultBlock.tool_use_id)
+  );
+  if (reverseIndex === -1) {
+    return null;
+  }
+
+  const targetIndex = messages.length - 1 - reverseIndex;
+  const targetMessage = messages[targetIndex] as AssistantMessage;
+  const updatedMessage: AssistantMessage = {
+    ...targetMessage,
+    content: mergeAssistantContent(targetMessage.content, message.content),
+  };
+
+  const nextMessages = [...messages];
+  nextMessages[targetIndex] = updatedMessage;
+  return nextMessages;
+}
+
+function upsertMessageById(messages: Message[], message: Message): Message[] | null {
+  const existingIndex = message.messageId
+    ? messages.findIndex(item => item.messageId === message.messageId)
+    : -1;
+  if (existingIndex === -1) {
+    return null;
+  }
+
+  const nextMessages = [...messages];
+  if (message.role !== 'assistant' || nextMessages[existingIndex].role !== 'assistant') {
+    nextMessages[existingIndex] = message;
+    return nextMessages;
+  }
+
+  const existingAssistant = nextMessages[existingIndex] as AssistantMessage;
+  const incomingAssistant = message as AssistantMessage;
+  nextMessages[existingIndex] = {
+    ...incomingAssistant,
+    content: mergeAssistantContent(existingAssistant.content, incomingAssistant.content),
+  };
+  return nextMessages;
+}
+
+function reduceIncomingMessage(
+  messages: Message[],
+  incoming: Message | StreamEvent,
+  messageAgentId: AgentId,
+  roundId: string
+): Message[] {
+  if (isStreamEventMessage(incoming)) {
+    return handleStreamEventMessage(messages, incoming, messageAgentId, roundId);
+  }
+
+  if (incoming.role === 'assistant') {
+    const mergedToolResult = mergeToolResultMessage(messages, incoming);
+    if (mergedToolResult) {
+      return mergedToolResult;
+    }
+  }
+
+  const upserted = upsertMessageById(messages, incoming);
+  if (upserted) {
+    return upserted;
+  }
+
+  return [...messages, incoming];
+}
+
+function extractToolCallsFromMessage(message: Message): ToolCall[] {
+  if (message.role !== 'assistant' || !Array.isArray(message.content)) {
+    return [];
+  }
+  return message.content
+    .filter((block): block is Extract<AssistantMessage['content'][number], { type: 'tool_use' }> =>
+      block.type === 'tool_use'
+    )
+    .map(block => ({
+      id: block.id,
+      toolName: block.name,
+      input: block.input || {},
+      status: 'running',
+      startTime: Date.now(),
+    }));
+}
+
+function mergeToolCalls(prev: ToolCall[], incoming: ToolCall[]): ToolCall[] {
+  if (incoming.length === 0) {
+    return prev;
+  }
+  const merged = new Map<string, ToolCall>();
+  prev.forEach(call => merged.set(call.id, call));
+  incoming.forEach(call => {
+    const existing = merged.get(call.id);
+    if (!existing) {
+      merged.set(call.id, call);
+      return;
+    }
+    merged.set(call.id, { ...existing, ...call });
+  });
+  return [...merged.values()];
+}
+
 export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentSessionReturn {
   const wsUrl = options.wsUrl || process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8010/agent/v1/chat/ws';
 
@@ -114,7 +351,7 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
   } | null>(null);
 
   // Store
-  const { getSession, updateSession } = useSessionStore();
+  const { updateSession } = useSessionStore();
 
   // Refs
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -131,190 +368,6 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
       return;
     }
 
-    // 处理普通消息 - 移除agentId依赖，使用消息中的agent_id
-    if (backendMsg.message_type) {
-      const messageAgentId = backendMsg.agent_id || agentId;
-      if (!messageAgentId) {
-        console.warn('[useAgentSession] 消息缺少agent_id:', backendMsg);
-        return;
-      }
-
-      const newMessage = convertBackendMessage(backendMsg);
-      const newToolCalls = extractToolCalls(backendMsg);
-
-      if (newMessage) {
-        // console.debug('[useAgentSession] Received message:', newMessage)
-        setMessages(prev => {
-          // 1. 处理流式消息 (StreamEvent)
-          if ('type' in newMessage && !('role' in newMessage)) {
-            const event = newMessage as any; // StreamEvent
-            // console.debug('[useAgentSession] Processing stream event:', event.type, event);
-
-            if (event.type === 'message_start') {
-              if (event.messageId) {
-                const existingMessageIndex = prev.findIndex(
-                  msg => msg.role === 'assistant' && msg.messageId === event.messageId
-                );
-                if (existingMessageIndex !== -1) {
-                  return prev;
-                }
-              }
-
-              // 创建新的 Assistant 消息
-              // 从 backendMsg 获取 roundId，确保流式消息正确分组
-              const messageRoundId = backendMsg.round_id || '';
-              const newMsg: any = {
-                messageId: event.messageId,
-                agentId: messageAgentId,
-                roundId: messageRoundId,
-                role: 'assistant',
-                content: [],
-                timestamp: Date.now(),
-                model: event.message?.model,
-              };
-              console.debug('[useAgentSession] Created new assistant message with roundId:', messageRoundId);
-              return [...prev, newMsg];
-            }
-
-            const targetIndex = findAssistantMessageIndex(prev, event.messageId);
-            if (targetIndex === -1) {
-              console.warn('[useAgentSession] No assistant message to update');
-              return prev;
-            }
-
-            const targetMessage = prev[targetIndex] as AssistantMessage;
-            const updatedMsg = { ...targetMessage } as any;
-            updatedMsg.content = [...updatedMsg.content];
-
-            if (event.type === 'content_block_start') {
-              if (event.content_block) {
-                updatedMsg.content[event.index] = event.content_block;
-                console.debug('[useAgentSession] Started content block:', event.index, event.content_block);
-              }
-            } else if (event.type === 'content_block_delta') {
-              const delta = event.delta;
-              const index = event.index;
-              const block = updatedMsg.content[index];
-
-              if (block && delta) {
-                if (block.type === 'text' && delta.type === 'text_delta') {
-                  updatedMsg.content[index] = {
-                    ...block,
-                    text: block.text + (delta.text || '')
-                  };
-                } else if (block.type === 'thinking' && delta.type === 'thinking_delta') {
-                  updatedMsg.content[index] = {
-                    ...block,
-                    thinking: block.thinking + (delta.thinking || '')
-                  };
-                } else if (block.type === 'tool_use' && delta.type === 'input_json_delta') {
-                  // 处理 tool_use 的 input 流式更新
-                  // delta.partial_json 包含完整的 JSON 字符串
-                  try {
-                    const parsedInput = JSON.parse(delta.partial_json);
-                    updatedMsg.content[index] = {
-                      ...block,
-                      input: parsedInput
-                    };
-                    console.debug('[useAgentSession] Updated tool_use input:', block.name);
-                  } catch (e) {
-                    // JSON 解析失败，可能是部分数据，暂存原始字符串
-                    console.debug('[useAgentSession] Partial tool input, waiting for complete JSON');
-                  }
-                }
-              }
-            } else if (event.type === 'message_delta') {
-              if (event.delta?.stop_reason) {
-                updatedMsg.stopReason = event.delta.stop_reason;
-              }
-              if (event.usage) {
-                updatedMsg.usage = event.usage;
-              }
-            }
-
-            const newMessages = [...prev];
-            newMessages[targetIndex] = updatedMsg;
-            return newMessages;
-          }
-
-          // 2. 处理普通消息 (Message)
-          // 优先处理 tool_result，避免 message_id 命中时覆盖整条 assistant 内容
-          if (newMessage.role === 'assistant' && (newMessage as any).isToolResult) {
-            const toolResultContent = (newMessage as any).content;
-            // 确保 content 是数组且包含 tool_result
-            if (Array.isArray(toolResultContent) && toolResultContent.length > 0) {
-              const toolResultBlock = toolResultContent.find((b: any) => b.type === 'tool_result');
-
-              if (toolResultBlock) {
-                const toolUseId = toolResultBlock.tool_use_id;
-
-                // 从后往前查找包含对应 tool_use 的消息
-                const targetIndex = [...prev].reverse().findIndex(msg =>
-                  msg.role === 'assistant' &&
-                  Array.isArray(msg.content) &&
-                  msg.content.some((b: any) => b.type === 'tool_use' && b.id === toolUseId)
-                );
-
-                if (targetIndex !== -1) {
-                  // 找到了，计算实际索引
-                  const actualIndex = prev.length - 1 - targetIndex;
-                  const newMessages = [...prev];
-                  const targetMessage = { ...newMessages[actualIndex] } as any;
-
-                  // 合并 content，避免重复追加同一个 tool_result
-                  targetMessage.content = mergeAssistantContent(targetMessage.content || [], toolResultContent);
-                  newMessages[actualIndex] = targetMessage;
-
-                  console.debug('[useAgentSession] Merged tool_result into previous message:', toolUseId);
-                  return newMessages;
-                }
-              }
-            }
-          }
-
-          // 首先检查是否已经存在相同messageId的消息（流式结束后的完整消息）
-          console.debug('[useAgentSession] Processing message:', newMessage);
-          const existingIndex = prev.findIndex(m => m.messageId === (newMessage as Message).messageId);
-          if (existingIndex !== -1 && (newMessage as Message).messageId) {
-            // 更新现有消息，合并 content，避免后端局部块覆盖掉已有块
-            const newMessages = [...prev];
-
-            if (newMessage.role === 'assistant') {
-              const existingMsg = newMessages[existingIndex] as AssistantMessage;
-              const newMsg = { ...newMessage } as AssistantMessage;
-
-              if (Array.isArray(existingMsg.content) && Array.isArray(newMsg.content)) {
-                newMsg.content = mergeAssistantContent(existingMsg.content, newMsg.content);
-              }
-              newMessages[existingIndex] = newMsg;
-            } else {
-              newMessages[existingIndex] = newMessage as Message;
-            }
-
-            console.debug('[useAgentSession] Updated existing message:', (newMessage as Message).messageId);
-            return newMessages;
-          }
-
-          // 默认行为：追加新消息
-          return [...prev, newMessage as Message];
-        });
-      }
-
-      if (newToolCalls.length > 0) {
-        setToolCalls(prev => [...prev, ...newToolCalls]);
-      }
-
-      // 如果是stream事件，保持loading状态
-      if (backendMsg.message_type === 'stream') {
-        setIsLoading(true);
-      }
-
-      // 如果是result类型，停止loading
-      if (backendMsg.message_type === 'result') {
-        setIsLoading(false);
-      }
-    }
-
     // 处理事件
     if (backendMsg.event_type) {
       // 处理权限请求事件
@@ -329,8 +382,34 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
         return;
       }
 
-      if (backendMsg.event_type === 'stream_end') {
-        setIsLoading(false);
+      if (backendMsg.event_type === 'conversation_event') {
+        const payload = backendMsg.data as ConversationEventPayload;
+        const messageAgentId = backendMsg.agent_id || agentId;
+        if (!payload || !messageAgentId) {
+          return;
+        }
+
+        if (payload.kind === 'message_delta' && payload.delta) {
+          setMessages(prev => reduceIncomingMessage(prev, payload.delta!, messageAgentId, payload.turn_id || ''));
+          setIsLoading(true);
+          return;
+        }
+
+        if (payload.kind === 'message_upsert' && payload.message) {
+          setMessages(prev => reduceIncomingMessage(prev, payload.message!, messageAgentId, payload.turn_id || ''));
+
+          const toolCallsFromMessage = extractToolCallsFromMessage(payload.message);
+          if (toolCallsFromMessage.length > 0) {
+            setToolCalls(prev => mergeToolCalls(prev, toolCallsFromMessage));
+          }
+
+          if (payload.message.role === 'result') {
+            setIsLoading(false);
+          } else if (payload.message.role === 'assistant') {
+            setIsLoading(true);
+          }
+          return;
+        }
       }
     }
   }, [agentId]);
@@ -410,8 +489,13 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
    * 停止生成
    */
   const stopGeneration = useCallback(() => {
+    const latestUserRoundId = [...messages]
+      .reverse()
+      .find(message => message.role === 'user')?.roundId;
+
     console.debug('[useAgentSession] 停止生成被调用:', {
       agentId,
+      roundId: latestUserRoundId,
       wsState,
       hasAbortController: !!abortControllerRef.current,
       hasWsSend: !!wsSend
@@ -424,7 +508,13 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
 
     // 发送到后端
     if (agentId && wsSend) {
-      const interruptMsg = { type: 'interrupt', agent_id: agentId };
+      const interruptMsg: { type: 'interrupt'; agent_id: string; round_id?: string } = {
+        type: 'interrupt',
+        agent_id: agentId,
+      };
+      if (latestUserRoundId) {
+        interruptMsg.round_id = latestUserRoundId;
+      }
       console.debug('[useAgentSession] 发送停止消息:', interruptMsg);
       console.debug('[useAgentSession] WebSocket 状态:', wsState);
 
@@ -445,7 +535,7 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
     setIsLoading(false);
     setToolCalls([]);
 
-  }, [agentId, wsSend, wsState]);
+  }, [agentId, messages, wsSend, wsState]);
   /**
    * 发送权限响应（也用于 AskUserQuestion）
    */
@@ -528,7 +618,7 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
 
   // 创建操作函数
   const loadHistoryMessages = useCallback(
-    createLoadHistoryMessages(setMessages, updateSession, convertBackendMessage),
+    createLoadHistoryMessages(setMessages, updateSession),
     [updateSession]
   );
 
@@ -538,7 +628,7 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
   );
 
   const loadSession = useCallback(
-    createLoadSession(setAgentId, setMessages, setError, convertBackendMessage),
+    createLoadSession(setAgentId, setMessages, setError),
     []
   );
 

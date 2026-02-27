@@ -23,7 +23,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from agent.service.schema.model_message import AMessage
+from agent.service.process.conversation_protocol_adapter import ConversationProtocolAdapter
 from agent.service.schema.model_session import ASession
 from agent.service.session.session_router import build_session_key
 from agent.service.session_manager import session_manager
@@ -31,6 +31,7 @@ from agent.service.session_store import session_store
 from agent.shared.server.common import resp
 
 router = APIRouter(tags=["session"])
+protocol_adapter = ConversationProtocolAdapter()
 
 
 # =====================================================
@@ -121,12 +122,12 @@ async def update_session(agent_id: str, request: UpdateSessionRequest):
     return resp.ok(resp.Resp(data=session_info.model_dump()))
 
 
-@router.get("/sessions/{agent_id}/messages", response_model=List[AMessage])
+@router.get("/sessions/{agent_id}/messages")
 async def get_session_messages(agent_id: str):
     """获取指定会话的所有消息"""
     session_key = _to_session_key(agent_id)
     messages = await session_store.get_session_messages(session_key)
-    data = [m.model_dump() for m in messages]
+    data = protocol_adapter.build_history_messages(messages)
     return resp.ok(resp.Resp(data=data))
 
 

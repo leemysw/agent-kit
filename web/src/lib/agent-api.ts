@@ -9,6 +9,7 @@
  */
 
 import { ApiSession, CreateSessionParams, Session, UpdateSessionParams } from '@/types/session';
+import { Message as ChatMessage } from '@/types/message';
 
 const AGENT_API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010/agent/v1';
 
@@ -19,19 +20,6 @@ export interface ApiResponse<T> {
   message: string;
   data: T;
   request_id?: string;
-}
-
-// message_type: assistant, user, system, result, stream
-// block_type: text、thinking、tool_result、tool_use
-export interface Message {
-  message_type: string;
-  block_type?: string;
-  message: Record<string, any>;
-  timestamp: string;
-  message_id: string;
-  agent_id: string;
-  session_id: string;
-  parent_id: string;
 }
 
 // ==================== 类型转换函数 ====================
@@ -74,7 +62,7 @@ export const getSessions = async (): Promise<Session[]> => {
 /**
  * 获取指定会话的所有消息
  */
-export const getSessionMessages = async (agentId: string): Promise<Message[]> => {
+export const getSessionMessages = async (agentId: string): Promise<ChatMessage[]> => {
   console.debug(`[getSessionMessages] 开始获取session ${agentId} 的消息`);
   const response = await fetch(`${AGENT_API_BASE_URL}/sessions/${agentId}/messages`, {
     method: 'GET',
@@ -90,7 +78,7 @@ export const getSessionMessages = async (agentId: string): Promise<Message[]> =>
     throw new Error(`获取会话消息失败: ${response.statusText}`);
   }
 
-  const result: ApiResponse<Message[]> = await response.json();
+  const result: ApiResponse<ChatMessage[]> = await response.json();
   return result.data;
 };
 
