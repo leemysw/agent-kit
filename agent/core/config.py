@@ -91,6 +91,11 @@ class Settings(BaseSettings):
     TELEGRAM_BOT_TOKEN: str = ""
     TELEGRAM_ALLOWED_USERS: str = ""  # 逗号分隔的 User ID
 
+    # =====================================================
+    # Workspace 配置
+    # =====================================================
+    WORKSPACE_PATH: str = ""  # 为空时使用 {cwd}/workspace
+
     model_config = SettingsConfigDict(
         env_file=os.path.abspath(ENV_FILE),
         env_file_encoding="utf-8",

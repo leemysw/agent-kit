@@ -30,6 +30,7 @@ from telegram.ext import Application, ContextTypes, MessageHandler, filters
 from agent.service.channel.channel import MessageChannel, MessageSender
 from agent.service.channel.discord_channel import AutoAllowPermissionStrategy
 from agent.service.schema.model_message import AError, AEvent, AMessage
+from agent.service.session.session_router import build_session_key
 from agent.utils.logger import logger
 
 
@@ -156,16 +157,27 @@ class TelegramChannel(MessageChannel):
         if not content:
             return
 
-        agent_id = f"telegram:{user.id}:{chat_id}"
+        # 构建 session_key
+        is_private = update.effective_chat.type == "private"
+        if is_private:
+            session_key = build_session_key(
+                channel="tg", chat_type="dm", ref=str(user.id)
+            )
+        else:
+            # 群组/Topic 支持
+            thread_id = str(update.message.message_thread_id) if update.message.message_thread_id else None
+            session_key = build_session_key(
+                channel="tg", chat_type="group", ref=str(chat_id), thread_id=thread_id
+            )
 
-        logger.info(f"📨 Telegram 消息: user={user.username}, chat_id={chat_id}, agent_id={agent_id}")
+        logger.info(f"📨 Telegram 消息: user={user.username}, chat_id={chat_id}, key={session_key}")
 
         # 发送「正在输入」状态
         await context.bot.send_chat_action(chat_id=chat_id, action="typing")
 
-        await self._process_message(agent_id, content, chat_id)
+        await self._process_message(session_key, content, chat_id)
 
-    async def _process_message(self, agent_id: str, content: str, chat_id: int) -> None:
+    async def _process_message(self, session_key: str, content: str, chat_id: int) -> None:
         """使用 ChatHandler 处理消息"""
         from agent.service.handler.chat_handler import ChatHandler
 
@@ -173,7 +185,7 @@ class TelegramChannel(MessageChannel):
         handler = ChatHandler(sender, self._permission_strategy)
 
         chat_message = {
-            "agent_id": agent_id,
+            "session_key": session_key,
             "content": content,
             "round_id": str(uuid.uuid4()),
         }

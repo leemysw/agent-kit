@@ -49,8 +49,8 @@ class WebSocketSender(MessageSender):
         payload["timestamp"] = payload["timestamp"].isoformat()
         await self.websocket.send_json(payload)
 
-        if message.message_type != "stream":
-            logger.debug(f"💬发送消息: {payload}")
+        # if message.message_type != "stream":
+        logger.debug(f"💬发送消息: {payload}")
 
     async def send_event(self, event: AEvent) -> None:
         payload = event.model_dump()

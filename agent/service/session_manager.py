@@ -4,10 +4,20 @@
 # @File   ：session_manager.py
 # @Date   ：2025/11/27 15:33
 # @Author ：leemysw
-
+#
 # 2025/11/27 15:33   Create
+# 2026/2/25          重构：session_key 路由
 # =====================================================
 
+"""
+SDK 会话管理器
+
+[INPUT]: 依赖 claude_agent_sdk 的 ClaudeSDKClient/ClaudeAgentOptions,
+         依赖 session_store 的会话存取
+[OUTPUT]: 对外提供 SessionManager（SDK client 生命周期管理）
+[POS]: service 层的 SDK 会话管理，被 ChatHandler 消费
+[PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+"""
 
 import asyncio
 from pathlib import Path
@@ -21,187 +31,123 @@ from agent.utils.logger import logger
 
 
 class SessionManager:
-    """
-    管理活跃的 ClaudeSDKClient 会话。
-    将 message_id 映射到客户端实例和会话数据。
-    """
+    """管理活跃的 ClaudeSDKClient 会话（以 session_key 为索引）"""
 
     def __init__(self):
-        self._sessions: Dict[str, ClaudeSDKClient] = {}
+        self._sessions: Dict[str, ClaudeSDKClient] = {}  # session_key → client
         self._locks: Dict[str, asyncio.Lock] = {}
 
-        # SDK session ID映射 (前端session_id <-> SDK agent_id)
-        self._chat_sdk_map: Dict[str, str] = {}  # agent_id -> sdk_id
-        self._sdk_chat_map: Dict[str, str] = {}  # sdk_id -> agent_id
+        # SDK session ID 映射 (session_key ↔ sdk_id)
+        self._key_sdk_map: Dict[str, str] = {}  # session_key → sdk_id
+        self._sdk_key_map: Dict[str, str] = {}  # sdk_id → session_key
 
-    async def get_session(self, agent_id: str) -> Optional[ClaudeSDKClient]:
-        """
-        获取现有会话的客户端实例。
-
-        Args:
-            agent_id: 前端会话ID
-
-        Returns:
-            Optional[ClaudeSDKClient]: 客户端实例，如果会话不存在则返回None
-        """
-        return self._sessions.get(agent_id)
+    async def get_session(self, session_key: str) -> Optional[ClaudeSDKClient]:
+        """获取现有 SDK client"""
+        return self._sessions.get(session_key)
 
     async def create_session(
             self,
-            agent_id: str,
+            session_key: str,
             can_use_tool: Optional[CanUseTool],
             session_id: Optional[str] = None,
             session_options: Optional[Dict[str, Any]] = None,
     ) -> ClaudeSDKClient:
-        """
-        创建新会话或返回现有会话。支持resume已有会话。
+        """创建新会话或返回现有会话"""
+        if session_key in self._sessions:
+            logger.info(f"🔄 返回现有会话: {session_key}")
+            return self._sessions[session_key]
 
-        Args:
-            agent_id: 前端会话ID
-            can_use_tool: 授权工具
-            session_id: SDK session ID（用于resume）
-            session_options: 会话配置选项
-
-        Returns:
-            ClaudeSDKClient: 客户端实例
-        """
-        if agent_id in self._sessions:
-            logger.info(f"🔄返回现有会话: {agent_id}")
-            return self._sessions[agent_id]
-
-        # 创建 options（如果提供了配置，使用配置；否则使用默认值）
+        # 构建 options
         if session_options:
             options = ClaudeAgentOptions(can_use_tool=can_use_tool, **session_options)
         else:
             options = ClaudeAgentOptions(can_use_tool=can_use_tool)
 
-        # 如果需要resume，设置resume参数
+        # resume
         if session_id:
             options.resume = session_id
-            logger.info(f"🔄恢复历史会话: agent_id={agent_id}, sdk_session={session_id}")
+            logger.info(f"🔄 恢复历史会话: key={session_key}, sdk_session={session_id}")
         else:
-            logger.info(f"✨创建新会话: agent_id={agent_id}")
+            logger.info(f"✨ 创建新会话: key={session_key}")
 
-        # 验证cwd路径
+        # 验证 cwd
         cwd = Path(options.cwd)
         if not cwd.is_dir():
             raise ServerException(f"指定的cwd路径不存在: {cwd}")
-
         options.cwd = cwd.absolute().as_posix()
 
         try:
-            # 初始化客户端
             client = ClaudeSDKClient(options=options)
-            self._sessions[agent_id] = client
-            self._locks[agent_id] = asyncio.Lock()
+            self._sessions[session_key] = client
+            self._locks[session_key] = asyncio.Lock()
 
-            logger.info(f"✅创建SDK client: agent_id={agent_id}, options={options}")
+            logger.info(f"✅ 创建SDK client: key={session_key}")
             return client
 
         except Exception as e:
-            logger.error(f"❌创建会话失败 {agent_id}: {e}")
+            logger.error(f"❌ 创建会话失败 {session_key}: {e}")
             raise
 
-    def get_lock(self, agent_id: str) -> asyncio.Lock:
-        """
-        获取指定会话的锁，确保操作期间的线程安全。
+    def get_lock(self, session_key: str) -> asyncio.Lock:
+        """获取会话锁"""
+        if session_key not in self._locks:
+            self._locks[session_key] = asyncio.Lock()
+        return self._locks[session_key]
 
-        Args:
-            agent_id: 前端会话ID
-
-        Returns:
-            asyncio.Lock: 会话锁
-        """
-        if agent_id not in self._locks:
-            self._locks[agent_id] = asyncio.Lock()
-        return self._locks[agent_id]
-
-    async def update_session_options(self, agent_id: str) -> bool:
-        """
-        更新会话的 options 配置。
-        新的 client 将在下次发送消息时通过 _get_or_create_client 懒加载创建
-
-        Args:
-            agent_id: 前端会话ID
-
-        Returns:
-            bool: 是否成功更新
-        """
-        # 检查会话是否存在于内存中
-        if agent_id not in self._sessions:
-            # 会话不在内存中，跳过
-            logger.info(f"❌会话不存在于内存中: {agent_id}")
+    async def update_session_options(self, session_key: str) -> bool:
+        """更新会话配置（销毁旧 client，下次发消息时懒加载）"""
+        if session_key not in self._sessions:
+            logger.info(f"❌ 会话不存在于内存中: {session_key}")
             return True
 
-        # 获取锁以确保线程安全
-        async with self.get_lock(agent_id):
+        async with self.get_lock(session_key):
             try:
-                # 关闭旧的 ClaudeSDKClient
-                old_client = self._sessions.get(agent_id)
+                old_client = self._sessions.get(session_key)
                 try:
                     await old_client.disconnect()
-                    logger.info(f"🔌断开旧的SDK连接: {agent_id}")
+                    logger.info(f"🔌 断开旧SDK连接: {session_key}")
                 except Exception as e:
-                    logger.warning(f"⚠️断开旧连接时出错: {e}")
+                    logger.warning(f"⚠️ 断开旧连接时出错: {e}")
 
-                # 移除旧的 client
-                del self._sessions[agent_id]
-
-                # 注意：不立即创建新的 ClaudeSDKClient
-                # 新的 client 将在下次发送消息时通过 _get_or_create_client 懒加载创建
-                # 这样可以使用数据库中最新的 options 配置
-
-                logger.info(f"✅会话选项已更新，client 已重置: {agent_id}")
+                del self._sessions[session_key]
+                logger.info(f"✅ 会话选项已更新，client 已重置: {session_key}")
                 return True
 
             except Exception as e:
-                logger.error(f"❌更新会话选项失败 {agent_id}: {e}")
+                logger.error(f"❌ 更新会话选项失败 {session_key}: {e}")
                 return False
 
-    async def register_sdk_session(self, agent_id: str, session_id: str) -> None:
-        """
-        注册 agent_id 与 SDK session_id 的映射关系
+    async def register_sdk_session(self, session_key: str, session_id: str) -> None:
+        """注册 session_key 与 SDK session_id 的映射"""
+        self._key_sdk_map[session_key] = session_id
+        self._sdk_key_map[session_id] = session_key
 
-        Args:
-            agent_id: 前端 chat ID
-            session_id: SDK session ID
-        """
-        self._chat_sdk_map[agent_id] = session_id
-        self._sdk_chat_map[session_id] = agent_id
-
-        # 记录到数据库
         try:
-            await session_store.update_session(agent_id=agent_id, session_id=session_id)
-            logger.info(f"💾会话映射已记录到数据库: {agent_id} ↔ {session_id}")
+            await session_store.update_session(session_key=session_key, session_id=session_id)
+            logger.info(f"💾 会话映射已记录: {session_key} ↔ {session_id}")
         except Exception as db_error:
-            logger.warning(f"⚠️会话映射记录到数据库失败: {db_error}")
+            logger.warning(f"⚠️ 会话映射记录失败: {db_error}")
 
-        logger.info(f"📝注册会话映射: {agent_id} ↔ {session_id}")
+    def get_session_id(self, session_key: str) -> Optional[str]:
+        return self._key_sdk_map.get(session_key)
 
-    def get_session_id(self, agent_id: str) -> Optional[str]:
-        return self._chat_sdk_map.get(agent_id, None)
+    def get_session_key(self, session_id: str) -> Optional[str]:
+        return self._sdk_key_map.get(session_id)
 
-    def get_agent_id(self, session_id: str) -> Optional[str]:
-        return self._sdk_chat_map.get(session_id)
+    def remove_session(self, session_key: str) -> None:
+        """移除会话"""
+        if session_key in self._sessions:
+            del self._sessions[session_key]
+            logger.debug(f"🗑️ 已移除 client: {session_key}")
 
-    def remove_session(self, agent_id: str) -> None:
-        # 移除client
-        if agent_id in self._sessions:
-            del self._sessions[agent_id]
-            logger.debug(f"🗑️已移除session client: {agent_id}")
+        if session_key in self._locks:
+            del self._locks[session_key]
 
-        # 移除lock
-        if agent_id in self._locks:
-            del self._locks[agent_id]
-
-        # 移除映射关系
-        sdk_id = self._chat_sdk_map.get(agent_id)
+        sdk_id = self._key_sdk_map.pop(session_key, None)
         if sdk_id:
-            del self._chat_sdk_map[agent_id]
-            if sdk_id in self._sdk_chat_map:
-                del self._sdk_chat_map[sdk_id]
+            self._sdk_key_map.pop(sdk_id, None)
 
-        logger.info(f"✅已移除session: {agent_id}")
+        logger.info(f"✅ 已移除 session: {session_key}")
 
 
 # Global instance

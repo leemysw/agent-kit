@@ -27,6 +27,7 @@ from fastapi import WebSocket, WebSocketDisconnect
 
 from agent.service.channel.websocket_channel import InteractivePermissionStrategy, WebSocketSender
 from agent.service.handler import ChatHandler, ErrorHandler, InterruptHandler, PermissionHandler, PingHandler
+from agent.service.session.session_router import build_session_key
 from agent.service.session_manager import session_manager
 from agent.utils.logger import logger
 
@@ -77,6 +78,12 @@ class WebSocketHandler:
 
     async def on_message(self, message: Dict[str, Any], msg_type: str) -> None:
         """根据消息类型路由到对应处理器"""
+        # 将前端 agent_id 转换为 session_key
+        if "agent_id" in message and "session_key" not in message:
+            message["session_key"] = build_session_key(
+                channel="ws", chat_type="dm", ref=message["agent_id"]
+            )
+
         if msg_type == "chat":
             await self.chat_handler.handle_chat_message_with_task(message, self.chat_tasks)
         elif msg_type == "interrupt":
@@ -92,18 +99,18 @@ class WebSocketHandler:
         """清理 WebSocket 连接资源"""
         logger.info("🧹 WebSocket连接清理")
 
-        for agent_id, task in self.chat_tasks.items():
+        for session_key, task in self.chat_tasks.items():
             if not task.done():
-                logger.info(f"🛑 清理: 取消chat任务 {agent_id}")
+                logger.info(f"🛑 清理: 取消 chat 任务 {session_key}")
                 task.cancel()
 
             try:
-                client = await session_manager.get_session(agent_id)
+                client = await session_manager.get_session(session_key)
                 if client:
                     await client.interrupt()
-                    logger.info(f"⏸️ 清理: 中断SDK生成 {agent_id}")
+                    logger.info(f"⏸️ 清理: 中断 SDK 生成 {session_key}")
             except Exception as e:
-                logger.warning(f"⚠️ 中断SDK失败 {agent_id}: {e}")
+                logger.warning(f"⚠️ 中断 SDK 失败 {session_key}: {e}")
 
         if self.chat_tasks:
             await asyncio.gather(*self.chat_tasks.values(), return_exceptions=True)

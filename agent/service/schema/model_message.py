@@ -26,7 +26,8 @@ class AMessage(BaseModel):
      - content 是 ContentBlock 且数量大于1，转换为 多条只包含 1 个 ContentBlock 的 Message
      - content 是 str 转换 为 List[TextBlock]
     """
-    agent_id: str = Field(..., description="客户端会话ID")
+    session_key: str = Field(default="", description="结构化路由键")
+    agent_id: str = Field(default="main", description="智能体 ID")
     round_id: str = Field(default=..., description="轮次对话ID，标识同一用户问题的所有消息(用户消息ID)")
     session_id: str = Field(..., description="SDK会话ID")
     message_id: str = Field(default_factory=lambda: str(uuid.uuid4()), description="消息ID")

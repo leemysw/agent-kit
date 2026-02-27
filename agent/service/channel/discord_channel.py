@@ -30,6 +30,7 @@ from claude_agent_sdk import PermissionResult, PermissionResultAllow, Permission
 
 from agent.service.channel.channel import MessageChannel, MessageSender, PermissionStrategy
 from agent.service.schema.model_message import AError, AEvent, AMessage
+from agent.service.session.session_router import build_session_key
 from agent.utils.logger import logger
 
 
@@ -247,20 +248,31 @@ class DiscordChannel(MessageChannel):
             await message.channel.send("请输入你的问题 🤔")
             return
 
-        # 构建 agent_id: discord:{user_id}:{channel_id}
-        agent_id = f"discord:{message.author.id}:{message.channel.id}"
+        # 构建 session_key
+        is_dm = isinstance(message.channel, discord.DMChannel)
+        if is_dm:
+            session_key = build_session_key(
+                channel="dg", chat_type="dm", ref=str(message.author.id)
+            )
+        else:
+            ref = f"{message.guild.id}:{message.channel.id}"
+            # 线程支持（Phase 2 会完善）
+            thread_id = str(message.channel.id) if isinstance(message.channel, discord.Thread) else None
+            session_key = build_session_key(
+                channel="dg", chat_type="group", ref=ref, thread_id=thread_id
+            )
 
         logger.info(
-            f"📨 Discord 消息: user={message.author}, channel={message.channel}, agent_id={agent_id}"
+            f"📨 Discord 消息: user={message.author}, channel={message.channel}, key={session_key}"
         )
 
         # 显示正在输入
         async with message.channel.typing():
-            await self._process_message(agent_id, user_content, message.channel)
+            await self._process_message(session_key, user_content, message.channel)
 
     async def _process_message(
         self,
-        agent_id: str,
+        session_key: str,
         content: str,
         channel: discord.abc.Messageable,
     ) -> None:
@@ -271,7 +283,7 @@ class DiscordChannel(MessageChannel):
         handler = ChatHandler(sender, self._permission_strategy)
 
         chat_message = {
-            "agent_id": agent_id,
+            "session_key": session_key,
             "content": content,
             "round_id": str(uuid.uuid4()),
         }
