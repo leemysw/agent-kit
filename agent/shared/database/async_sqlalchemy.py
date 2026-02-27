@@ -7,6 +7,7 @@
 # 2025/8/30 16:00   Create
 # =====================================================
 
+import json
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
@@ -43,7 +44,9 @@ class AsyncDatabase:
             database_url,
             # echo=settings.DEBUG if hasattr(settings, 'DEBUG') else False,
             echo=False,
-            future=True
+            future=True,
+            # JSON 字段写入数据库时保留中文，不转义为 \uXXXX
+            json_serializer=lambda obj: json.dumps(obj, ensure_ascii=False),
         )
 
         self.session_factory = async_sessionmaker(
