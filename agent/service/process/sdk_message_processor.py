@@ -7,7 +7,6 @@
 # @Description ：Claude Agent SDK 消息处理器，将 SDK 消息类型转换为 JSON 格式
 # =====================================================
 
-import copy
 import json
 import uuid
 from dataclasses import asdict
@@ -46,13 +45,13 @@ class SDKMessageProcessor:
         }
 
     def process_message(
-            self, message: Message, agent_id: str, session_id: str, round_id: str, parent_id: str = None
+            self, message: Message, session_key: str, session_id: str, round_id: str, parent_id: str = None
     ) -> List[AMessage]:
         """处理 Claude Agent SDK 消息
 
         Args:
             message: Claude Agent SDK 消息对象
-            agent_id: 聊天ID（可选）
+            session_key: 会话路由键
             session_id: 会话ID
             round_id: 轮次ID
             parent_id: 父消息ID（可选）
@@ -70,23 +69,27 @@ class SDKMessageProcessor:
         # 其他类型消息保持原逻辑
         # 特殊处理 content 字段中的内容块
         a_messages = []
-        for message in messages:
-            if isinstance(message, (AssistantMessage, UserMessage)):
-                block_type = self.content_block_mapping.get(type(message.content[0]))
-            else:
-                block_type = None
+        for msg in messages:
+            block_type = None
+            if isinstance(msg, (AssistantMessage, UserMessage)) and hasattr(msg, 'content') and isinstance(msg.content,
+                                                                                                           list) and len(
+                    msg.content) > 0:
+                if len(msg.content) == 1:
+                    block_type = self.content_block_mapping.get(type(msg.content[0]))
+                else:
+                    block_type = "mixed"
 
-            message = AMessage(
-                message_type=self.message_type_mapping.get(type(message)),  # noqa
+            message_obj = AMessage(
+                message_type=self.message_type_mapping.get(type(msg)),  # noqa
                 block_type=block_type,  # noqa
-                message=message,
+                message=msg,
                 message_id=str(uuid.uuid4()),
                 session_id=session_id,
-                agent_id=agent_id,
+                session_key=session_key,
                 round_id=round_id,
                 parent_id=parent_id,
             )
-            a_messages.append(message)
+            a_messages.append(message_obj)
 
         return a_messages
 
@@ -110,18 +113,7 @@ class SDKMessageProcessor:
 
         # 处理 content 为 ContentBlock 列表的情况
         elif isinstance(message.content, list) and len(message.content) > 0:
-            # 如果只有一个 ContentBlock，保持原样
-            if len(message.content) == 1:
-                return [message]
-            # 如果有多个 ContentBlock，拆分为多条消息
-            else:
-                results = []
-                for i, block in enumerate(message.content):
-                    # 复制原始消息的其他字段
-                    new_message = copy.deepcopy(message)
-                    new_message.content = [block]
-                    results.append(new_message)
-                return results
+            return [message]
         else:
             raise ValueError(f"Invalid content type: {type(message.content)}")
 

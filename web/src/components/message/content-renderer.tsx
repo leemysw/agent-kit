@@ -4,6 +4,7 @@ import { MarkdownRenderer } from './markdown-renderer';
 import { ToolBlock } from './block/tool-block';
 import { AskUserQuestionBlock } from './block/ask-user-question-block';
 import { CodeBlock } from './block/code-block';
+import { ThinkingBlock } from './block/thinking-block';
 import { ContentBlock } from '@/types/message';
 import { UserQuestionAnswer } from '@/types/ask-user-question';
 import { cn } from '@/lib/utils';
@@ -71,6 +72,14 @@ export function ContentRenderer(
           return (
             <div key={index}>
               <ContentRenderer content={block.text} isStreaming={isStreaming} />
+            </div>
+          );
+        }
+
+        if (block.type === 'thinking') {
+          return (
+            <div key={index}>
+              <ThinkingBlock thinking={block.thinking || ''} isStreaming={isStreaming} />
             </div>
           );
         }

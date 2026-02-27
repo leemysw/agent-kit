@@ -39,7 +39,7 @@ export function convertBackendMessage(backendMsg: any): Message | StreamEvent | 
   if (message.content) {
     if (typeof message.content === 'string') {
       // 字符串转为TextBlock
-      contentBlocks = [{type: 'text', text: message.content}];
+      contentBlocks = [{ type: 'text', text: message.content }];
     } else if (Array.isArray(message.content)) {
       // 处理ContentBlock数组,添加type字段
       contentBlocks = message.content.map((block: any) => {
@@ -47,8 +47,15 @@ export function convertBackendMessage(backendMsg: any): Message | StreamEvent | 
         if (block.type) {
           return block;
         }
-        // 否则使用message的block_type
-        return {...block, type: block_type};
+
+        // 推断类型
+        if ('thinking' in block) return { ...block, type: 'thinking' };
+        if ('text' in block) return { ...block, type: 'text' };
+        if ('tool_use_id' in block) return { ...block, type: 'tool_result' };
+        if ('input' in block && 'name' in block) return { ...block, type: 'tool_use' };
+
+        // 默认 fallback: 使用message的block_type
+        return { ...block, type: block_type || 'text' };
       });
     }
   }
@@ -83,11 +90,14 @@ export function convertBackendMessage(backendMsg: any): Message | StreamEvent | 
       return {
         messageId: message_id,
         agentId: agent_id,
+        roundId: round_id,
         sessionId: session_id,
+        ParentId: parent_id,
         timestamp: timestamp ? new Date(timestamp).getTime() : Date.now(),
         role: 'assistant',
         content: contentBlocks,
         model: undefined,
+        parentToolUseId: message.parent_tool_use_id || null,
         isToolResult: true, // 标记这是tool result
       } as AssistantMessage;
     } else if (message.parent_tool_use_id) {

@@ -9,9 +9,10 @@
 # =====================================================
 
 import uuid
-from typing import Optional
+from typing import Any, Optional
 
-from claude_agent_sdk import Message, ResultMessage, SystemMessage, UserMessage
+from claude_agent_sdk import Message, ResultMessage, SystemMessage, ThinkingBlock, UserMessage
+from claude_agent_sdk.types import TextBlock, ToolResultBlock, ToolUseBlock
 
 from agent.service.process.sdk_message_processor import sdk_message_processor
 from agent.service.schema.model_message import AMessage
@@ -23,9 +24,9 @@ from agent.utils.logger import logger
 class ChatMessageProcessor:
     """单轮聊天消息处理器 - 管理消息状态和处理逻辑"""
 
-    def __init__(self, agent_id: str, query: str, round_id: Optional[str] = None):
+    def __init__(self, session_key: str, query: str, round_id: Optional[str] = None):
         self.query = query
-        self.agent_id = agent_id
+        self.session_key = session_key
         self.subtype: Optional[str] = None
         # 如果前端提供了 round_id 则使用，否则后端会在 save_user_message 时生成
         self.round_id: Optional[str] = round_id
@@ -37,6 +38,9 @@ class ChatMessageProcessor:
         self.is_streaming_tool: bool = False
         self.is_save_user_message: bool = False
         self.stream_message_id: Optional[str] = None
+        self.accumulated_thinking: str = ""
+        self.accumulated_signature: str = ""
+        self.accumulated_content_blocks: list[Any] = []
 
     async def process_messages(self, response_msg: Message) -> list[AMessage]:
         """
@@ -50,7 +54,7 @@ class ChatMessageProcessor:
         """
 
         # 打印消息
-        sdk_message_processor.print_message(response_msg, self.agent_id)
+        sdk_message_processor.print_message(response_msg, self.session_key)
 
         # 获取session_id并建立映射关系，保存用户消息（如果是第一次）
         self.set_subtype(response_msg)
@@ -60,7 +64,7 @@ class ChatMessageProcessor:
         # 转换为AMessage对象并处理
         messages = sdk_message_processor.process_message(
             message=response_msg,
-            agent_id=self.agent_id,
+            session_key=self.session_key,
             session_id=self.session_id,
             round_id=self.round_id,
             parent_id=self.parent_id,
@@ -72,7 +76,7 @@ class ChatMessageProcessor:
             # 处理流式消息状态
             self.update_stream_state(a_message)
 
-            # 不推送流失的工具消息
+            # 不推送流式的工具消息
             if a_message.message_type == "stream" and self.is_streaming_tool:
                 continue
 
@@ -101,9 +105,8 @@ class ChatMessageProcessor:
                 raise ValueError("⚠️When session_id is None, response_msg must be a SystemMessage")
 
             # 建立映射关系并更新数据库
-            await session_manager.register_sdk_session(agent_id=self.agent_id, session_id=self.session_id)
-            # 注意：这里不直接更新数据库，而是返回给调用者处理
-            logger.debug(f"🔗需要建立映射: agent_id={self.agent_id} ↔ sdk_session={self.session_id}")
+            await session_manager.register_sdk_session(session_key=self.session_key, session_id=self.session_id)
+            logger.debug(f"🔗建立映射: key={self.session_key} ↔ sdk_session={self.session_id}")
 
     def set_subtype(self, response_msg: Message) -> None:
         """
@@ -133,27 +136,112 @@ class ChatMessageProcessor:
             # 开启流式，记录stream_message_id
             self.is_streaming = True
             self.stream_message_id = a_message.message_id
+            self.accumulated_thinking = ""
+            self.accumulated_signature = ""
+            self.accumulated_content_blocks = []
 
         if self.is_streaming:
             if a_message.message_type == "stream":
                 a_message.message_id = self.stream_message_id
+                event_type = a_message.message.event["type"]
 
-                if a_message.message.event["type"] == "content_block_start":
+                if event_type == "content_block_start":
                     if a_message.message.event["content_block"]["type"] == "tool_use":
                         self.is_streaming_tool = True
+                
+                elif event_type == "content_block_delta":
+                    delta = a_message.message.event.get("delta", {})
+                    if delta.get("type") == "thinking_delta":
+                        self.accumulated_thinking += delta.get("thinking", "")
+                    elif delta.get("type") == "signature_delta":
+                        self.accumulated_signature += delta.get("signature", "")
 
-                if self.is_streaming_tool and a_message.message.event["type"] == "content_block_stop":
+                if self.is_streaming_tool and event_type == "content_block_stop":
                     self.is_streaming_tool = False
 
             elif a_message.message_type == "assistant":
-                # 交换消息ID
-                a_message.message_id, self.stream_message_id = self.stream_message_id, a_message.message_id
+                if hasattr(self, 'stream_message_id') and self.stream_message_id:
+                    a_message.message_id = self.stream_message_id
                 self.parent_id = a_message.message_id
+
+                if isinstance(a_message.message.content, list):
+                    a_message.message.content = self._merge_assistant_stream_content(a_message.message.content)
 
         if a_message.message_type == "stream" and a_message.message.event["type"] == "message_stop":
             # 关闭流式，清空stream_message_id
             self.is_streaming = False
             self.stream_message_id = None
+            self.accumulated_content_blocks = []
+
+    def _merge_assistant_stream_content(self, incoming_blocks: list[Any]) -> list[Any]:
+        """合并同一条流式 assistant 消息的内容块，避免中间块被覆盖。"""
+        merged_blocks = list(self.accumulated_content_blocks)
+
+        for block in incoming_blocks:
+            self._upsert_content_block(merged_blocks, block)
+
+        # 优先使用流事件累计的 thinking（SDK 某些情况下不会回填到最终消息）
+        if self.accumulated_thinking:
+            thinking_block = ThinkingBlock(
+                thinking=self.accumulated_thinking,
+                signature=self.accumulated_signature
+            )
+            self._upsert_content_block(merged_blocks, thinking_block)
+
+        self._move_thinking_to_front(merged_blocks)
+        self.accumulated_content_blocks = merged_blocks
+        return list(merged_blocks)
+
+    @staticmethod
+    def _upsert_content_block(content_blocks: list[Any], new_block: Any) -> None:
+        """按块类型做幂等更新，保证 tool_use/tool_result/text 不丢失。"""
+        if isinstance(new_block, ThinkingBlock):
+            for idx, block in enumerate(content_blocks):
+                if isinstance(block, ThinkingBlock):
+                    content_blocks[idx] = new_block
+                    return
+            content_blocks.insert(0, new_block)
+            return
+
+        if isinstance(new_block, ToolUseBlock):
+            for idx, block in enumerate(content_blocks):
+                if isinstance(block, ToolUseBlock) and block.id == new_block.id:
+                    content_blocks[idx] = new_block
+                    return
+            content_blocks.append(new_block)
+            return
+
+        if isinstance(new_block, ToolResultBlock):
+            for idx, block in enumerate(content_blocks):
+                if isinstance(block, ToolResultBlock) and block.tool_use_id == new_block.tool_use_id:
+                    content_blocks[idx] = new_block
+                    return
+            content_blocks.append(new_block)
+            return
+
+        if isinstance(new_block, TextBlock):
+            for block in content_blocks:
+                if isinstance(block, TextBlock) and block.text == new_block.text:
+                    return
+            content_blocks.append(new_block)
+            return
+
+        content_blocks.append(new_block)
+
+    @staticmethod
+    def _move_thinking_to_front(content_blocks: list[Any]) -> None:
+        """确保 thinking 始终位于首位，便于前端稳定渲染。"""
+        thinking_index: Optional[int] = None
+        for idx, block in enumerate(content_blocks):
+            if isinstance(block, ThinkingBlock):
+                thinking_index = idx
+                break
+
+        if thinking_index is None or thinking_index == 0:
+            return
+
+        thinking_block = content_blocks.pop(thinking_index)
+        content_blocks.insert(0, thinking_block)
 
     async def save_user_message(self, content: str):
         """
@@ -169,13 +257,13 @@ class ChatMessageProcessor:
                 self.round_id = str(uuid.uuid4())
 
             user_message = AMessage(
-                agent_id=self.agent_id,
+                session_key=self.session_key,
                 round_id=self.round_id,
                 message_id=self.round_id,
                 session_id=self.session_id,
                 message_type="user",
                 block_type="text",
-                message=UserMessage(content=content)
+                message=UserMessage(content=content),
             )
 
             await session_store.save_message(user_message)

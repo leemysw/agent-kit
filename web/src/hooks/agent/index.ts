@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useWebSocket } from '@/lib/websocket';
 import { useSessionStore } from '@/store/session';
-import { AgentId, Message, ToolCall, UserMessage } from '@/types';
+import { AgentId, AssistantMessage, Message, ToolCall, UserMessage } from '@/types';
 import { UserQuestionAnswer } from '@/types/ask-user-question';
 import { UseAgentSessionOptions, UseAgentSessionReturn } from './types';
 import { convertBackendMessage, extractToolCalls } from './message-converter';
@@ -21,6 +21,80 @@ import {
 import { deleteRound as deleteRoundApi } from '@/lib/agent-api';
 
 // ==================== Hook实现 ====================
+
+function getContentBlockKey(block: any): string | null {
+  if (!block || typeof block !== 'object') {
+    return null;
+  }
+  if (block.type === 'thinking') {
+    return 'thinking';
+  }
+  if (block.type === 'tool_use' && block.id) {
+    return `tool_use:${block.id}`;
+  }
+  if (block.type === 'tool_result' && block.tool_use_id) {
+    return `tool_result:${block.tool_use_id}`;
+  }
+  if (block.type === 'text' && typeof block.text === 'string') {
+    return `text:${block.text}`;
+  }
+  return null;
+}
+
+function mergeAssistantContent(existingContent: any[], incomingContent: any[]): any[] {
+  const merged = [...existingContent];
+  const indexMap = new Map<string, number>();
+
+  merged.forEach((block, index) => {
+    const key = getContentBlockKey(block);
+    if (key) {
+      indexMap.set(key, index);
+    }
+  });
+
+  incomingContent.forEach((block) => {
+    const key = getContentBlockKey(block);
+    if (!key) {
+      merged.push(block);
+      return;
+    }
+
+    const existingIndex = indexMap.get(key);
+    if (existingIndex === undefined) {
+      merged.push(block);
+      indexMap.set(key, merged.length - 1);
+      return;
+    }
+
+    merged[existingIndex] = block;
+  });
+
+  const thinkingIndex = merged.findIndex(block => block?.type === 'thinking');
+  if (thinkingIndex > 0) {
+    const [thinkingBlock] = merged.splice(thinkingIndex, 1);
+    merged.unshift(thinkingBlock);
+  }
+
+  return merged;
+}
+
+function findAssistantMessageIndex(messages: Message[], messageId?: string): number {
+  if (messageId) {
+    const exactIndex = messages.findIndex(
+      msg => msg.role === 'assistant' && msg.messageId === messageId
+    );
+    if (exactIndex !== -1) {
+      return exactIndex;
+    }
+  }
+
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index].role === 'assistant') {
+      return index;
+    }
+  }
+  return -1;
+}
 
 export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentSessionReturn {
   const wsUrl = options.wsUrl || process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8010/agent/v1/chat/ws';
@@ -77,6 +151,15 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
             // console.debug('[useAgentSession] Processing stream event:', event.type, event);
 
             if (event.type === 'message_start') {
+              if (event.messageId) {
+                const existingMessageIndex = prev.findIndex(
+                  msg => msg.role === 'assistant' && msg.messageId === event.messageId
+                );
+                if (existingMessageIndex !== -1) {
+                  return prev;
+                }
+              }
+
               // 创建新的 Assistant 消息
               // 从 backendMsg 获取 roundId，确保流式消息正确分组
               const messageRoundId = backendMsg.round_id || '';
@@ -93,13 +176,14 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
               return [...prev, newMsg];
             }
 
-            const lastMsg = prev[prev.length - 1];
-            if (!lastMsg || lastMsg.role !== 'assistant') {
+            const targetIndex = findAssistantMessageIndex(prev, event.messageId);
+            if (targetIndex === -1) {
               console.warn('[useAgentSession] No assistant message to update');
               return prev;
             }
 
-            const updatedMsg = { ...lastMsg } as any;
+            const targetMessage = prev[targetIndex] as AssistantMessage;
+            const updatedMsg = { ...targetMessage } as any;
             updatedMsg.content = [...updatedMsg.content];
 
             if (event.type === 'content_block_start') {
@@ -149,23 +233,12 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
             }
 
             const newMessages = [...prev];
-            newMessages[newMessages.length - 1] = updatedMsg;
+            newMessages[targetIndex] = updatedMsg;
             return newMessages;
           }
 
           // 2. 处理普通消息 (Message)
-          // 首先检查是否已经存在相同messageId的消息（流式结束后的完整消息）
-          // console.debug('[useAgentSession] Processing message:', newMessage);
-          const existingIndex = prev.findIndex(m => m.messageId === (newMessage as Message).messageId);
-          if (existingIndex !== -1 && (newMessage as Message).messageId) {
-            // 更新现有消息，保留完整内容
-            const newMessages = [...prev];
-            newMessages[existingIndex] = newMessage as Message;
-            // console.debug('[useAgentSession] Updated existing message:', (newMessage as Message).messageId);
-            return newMessages;
-          }
-
-          // 检查是否是 tool_result 消息
+          // 优先处理 tool_result，避免 message_id 命中时覆盖整条 assistant 内容
           if (newMessage.role === 'assistant' && (newMessage as any).isToolResult) {
             const toolResultContent = (newMessage as any).content;
             // 确保 content 是数组且包含 tool_result
@@ -188,8 +261,8 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
                   const newMessages = [...prev];
                   const targetMessage = { ...newMessages[actualIndex] } as any;
 
-                  // 合并 content
-                  targetMessage.content = [...targetMessage.content, ...toolResultContent];
+                  // 合并 content，避免重复追加同一个 tool_result
+                  targetMessage.content = mergeAssistantContent(targetMessage.content || [], toolResultContent);
                   newMessages[actualIndex] = targetMessage;
 
                   console.debug('[useAgentSession] Merged tool_result into previous message:', toolUseId);
@@ -197,6 +270,29 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
                 }
               }
             }
+          }
+
+          // 首先检查是否已经存在相同messageId的消息（流式结束后的完整消息）
+          console.debug('[useAgentSession] Processing message:', newMessage);
+          const existingIndex = prev.findIndex(m => m.messageId === (newMessage as Message).messageId);
+          if (existingIndex !== -1 && (newMessage as Message).messageId) {
+            // 更新现有消息，合并 content，避免后端局部块覆盖掉已有块
+            const newMessages = [...prev];
+
+            if (newMessage.role === 'assistant') {
+              const existingMsg = newMessages[existingIndex] as AssistantMessage;
+              const newMsg = { ...newMessage } as AssistantMessage;
+
+              if (Array.isArray(existingMsg.content) && Array.isArray(newMsg.content)) {
+                newMsg.content = mergeAssistantContent(existingMsg.content, newMsg.content);
+              }
+              newMessages[existingIndex] = newMsg;
+            } else {
+              newMessages[existingIndex] = newMessage as Message;
+            }
+
+            console.debug('[useAgentSession] Updated existing message:', (newMessage as Message).messageId);
+            return newMessages;
           }
 
           // 默认行为：追加新消息
