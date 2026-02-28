@@ -12,6 +12,3 @@ export * from './message';
 
 // 会话相关类型
 export * from './session';
-
-// 配置相关类型
-export * from './config';
