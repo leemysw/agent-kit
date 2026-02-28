@@ -84,6 +84,7 @@ AI Agent 应用。
 - [项目结构](#-项目结构)
 - [核心功能](#-核心功能)
 - [配置说明](#-配置说明)
+- [第三方 IM 集成](#-第三方-im-集成)
 - [API 文档](#-api-文档)
 - [开发指南](#-开发指南)
 - [贡献指南](#-贡献指南)
@@ -306,6 +307,50 @@ agent-kit/
 | `NEXT_PUBLIC_WS_URL`        | WebSocket 地址 | `ws://localhost:8010/agent/v1/chat/ws` |
 | `NEXT_PUBLIC_DEFAULT_CWD`   | 工作目录         | `/opt/app/playground`                  |
 | `NEXT_PUBLIC_DEFAULT_MODEL` | 默认模型         | `glm-5`                              |
+
+---
+
+## 🔌 第三方 IM 集成
+
+当前后端支持 3 类消息入口：
+- `WebSocket`（Web 前端）
+- `Discord`（`agent/service/channel/discord_channel.py`）
+- `Telegram`（`agent/service/channel/telegram_channel.py`）
+
+### 1) 配置环境变量（`.env`）
+
+```env
+# Discord
+DISCORD_ENABLED=true
+DISCORD_BOT_TOKEN=your_discord_bot_token
+DISCORD_ALLOWED_GUILDS=123456789012345678,987654321098765432
+DISCORD_TRIGGER_WORD=@agent-kit
+
+# Telegram
+TELEGRAM_ENABLED=true
+TELEGRAM_BOT_TOKEN=your_telegram_bot_token
+TELEGRAM_ALLOWED_USERS=12345678,87654321
+```
+
+应用启动时会根据 `DISCORD_ENABLED/TELEGRAM_ENABLED` 自动注册并启动对应通道。
+
+### 2) 会话路由规则
+
+第三方 IM 使用统一 session key 格式：
+
+```text
+agent:<agentId>:<channel>:<chatType>:<ref>[:topic:<threadId>]
+```
+
+示例：
+- Discord 群聊：`agent:main:dg:group:<guild_id>:<channel_id>`
+- Telegram 私聊：`agent:main:tg:dm:<user_id>`
+
+### 3) 常见问题
+
+- Discord 不响应：确认 Bot 已开启 **Message Content Intent**。
+- Telegram 无法收消息：确认 Bot 不是 privacy mode 限制场景，且 `TELEGRAM_ALLOWED_USERS` 已包含当前用户 ID。
+- `DISCORD_TRIGGER_WORD`：当前实现会移除触发词，但不会强制要求消息必须包含触发词。
 
 ---
 

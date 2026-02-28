@@ -82,6 +82,7 @@
 - [Project Structure](#-project-structure)
 - [Core Features](#-core-features)
 - [Configuration](#-configuration)
+- [Third-Party IM Integration](#-third-party-im-integration)
 - [API Documentation](#-api-documentation)
 - [Development Guide](#-development-guide)
 - [Contributing](#-contributing)
@@ -302,6 +303,50 @@ agent-kit/
 | `NEXT_PUBLIC_WS_URL` | WebSocket URL | `ws://localhost:8010/agent/v1/chat/ws` |
 | `NEXT_PUBLIC_DEFAULT_CWD` | Working directory | `/opt/app/playground` |
 | `NEXT_PUBLIC_DEFAULT_MODEL` | Default model | `glm-5` |
+
+---
+
+## 🔌 Third-Party IM Integration
+
+The backend currently supports three message entry channels:
+- `WebSocket` (Web UI)
+- `Discord` (`agent/service/channel/discord_channel.py`)
+- `Telegram` (`agent/service/channel/telegram_channel.py`)
+
+### 1) Configure environment variables (`.env`)
+
+```env
+# Discord
+DISCORD_ENABLED=true
+DISCORD_BOT_TOKEN=your_discord_bot_token
+DISCORD_ALLOWED_GUILDS=123456789012345678,987654321098765432
+DISCORD_TRIGGER_WORD=@agent-kit
+
+# Telegram
+TELEGRAM_ENABLED=true
+TELEGRAM_BOT_TOKEN=your_telegram_bot_token
+TELEGRAM_ALLOWED_USERS=12345678,87654321
+```
+
+Channels are registered automatically at app startup based on `DISCORD_ENABLED/TELEGRAM_ENABLED`.
+
+### 2) Session routing rule
+
+All IM channels share the same session key pattern:
+
+```text
+agent:<agentId>:<channel>:<chatType>:<ref>[:topic:<threadId>]
+```
+
+Examples:
+- Discord group chat: `agent:main:dg:group:<guild_id>:<channel_id>`
+- Telegram direct message: `agent:main:tg:dm:<user_id>`
+
+### 3) Troubleshooting
+
+- Discord not responding: ensure **Message Content Intent** is enabled for the bot.
+- Telegram not receiving messages: check privacy mode and make sure the current user is included in `TELEGRAM_ALLOWED_USERS`.
+- `DISCORD_TRIGGER_WORD`: the current implementation strips the trigger word if present, but does not require it.
 
 ---
 

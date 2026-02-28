@@ -22,17 +22,16 @@ Telegram 通道实现
 
 import asyncio
 import uuid
-from typing import Any, Dict, List, Optional, Set
+from typing import List, Optional, Set
 
 from telegram import Update
-from telegram.ext import Application, ContextTypes, MessageHandler, filters
+from telegram.ext import Application, ContextTypes, filters, MessageHandler
 
 from agent.service.channel.channel import MessageChannel, MessageSender
 from agent.service.channel.discord_channel import AutoAllowPermissionStrategy
 from agent.service.schema.model_message import AError, AEvent, AMessage
 from agent.service.session.session_router import build_session_key
 from agent.utils.logger import logger
-
 
 # =====================================================
 # 常量
@@ -62,6 +61,9 @@ class TelegramSender(MessageSender):
 
         text = self._extract_text(message)
         if not text:
+            return
+
+        if not text or message.message_type == "result":
             return
 
         for chunk in self._split_message(text):
@@ -125,10 +127,10 @@ class TelegramChannel(MessageChannel):
     """Telegram 通道"""
 
     def __init__(
-        self,
-        bot_token: str,
-        allowed_user_ids: Optional[Set[int]] = None,
-        allowed_tool_names: Optional[Set[str]] = None,
+            self,
+            bot_token: str,
+            allowed_user_ids: Optional[Set[int]] = None,
+            allowed_tool_names: Optional[Set[str]] = None,
     ):
         self._bot_token = bot_token
         self._allowed_user_ids = allowed_user_ids
