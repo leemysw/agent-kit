@@ -19,7 +19,7 @@
 
 ## 📖 Introduction
 
-**Agent Kit** is a comprehensive AI agent development framework that integrates **Claude Agent SDK**, providing a complete solution from frontend to backend. This project aims to help developers quickly build, deploy, and scale production-grade AI Agent applications.
+**Agent Kit** is a comprehensive AI agent development framework that integrates **Claude Agent SDK**, providing a complete solution from frontend to backend. This project aims to help developers quickly build, deploy, and scale production-grade AI Agent applications. It includes built-in multi-channel access via WebSocket, Discord, and Telegram, with unified session routing and message handling.
 
 <div align="center">
 <img src="docs/images/agent-kit-1.png" alt="Agent Kit Screenshot" width="45.9%"/>
@@ -37,6 +37,7 @@
 - FastAPI asynchronous backend
 - Next.js frontend framework
 - WebSocket real-time communication
+- Discord / Telegram third-party IM integration
 - SQLite + Alembic database migrations
 
 </td>
@@ -46,6 +47,7 @@
 
 - Deep Claude Agent SDK integration
 - Streaming response support
+- Unified cross-channel session routing
 - Custom tools system (in development)
 - MCP support (in development)
 - Skill support (in development)

@@ -21,7 +21,7 @@
 ## 📖 简介
 
 **Agent Kit** 是一个功能完整的 AI 智能体开发框架，集成了 **Claude Agent SDK**，提供从前端到后端的完整解决方案。该项目旨在帮助开发者快速构建、部署和扩展生产级的
-AI Agent 应用。
+AI Agent 应用。框架内置 WebSocket、Discord、Telegram 多通道接入能力，支持统一的会话路由与消息处理。
 
 <div align="center">
 <img src="docs/images/agent-kit-1.png" alt="" width="45.9%"/>
@@ -39,6 +39,7 @@ AI Agent 应用。
 - FastAPI 异步后端
 - Next.js 前端框架
 - WebSocket 实时通信
+- Discord / Telegram 第三方 IM 接入
 - SQLite + Alembic 数据库迁移
 
 </td>
@@ -48,6 +49,7 @@ AI Agent 应用。
 
 - Claude Agent SDK 深度集成
 - 流式响应模式
+- 跨通道统一会话路由
 - 自定义工具系统 (开发中)
 - MCP 支持 (开发中)
 - Skill 支持 (开发中)
