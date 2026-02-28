@@ -71,9 +71,10 @@ class SDKMessageProcessor:
         a_messages = []
         for msg in messages:
             block_type = None
-            if isinstance(msg, (AssistantMessage, UserMessage)) and hasattr(msg, 'content') and isinstance(msg.content,
-                                                                                                           list) and len(
-                    msg.content) > 0:
+            if isinstance(msg, (AssistantMessage, UserMessage)) \
+                    and hasattr(msg, 'content') \
+                    and isinstance(msg.content, list) \
+                    and len(msg.content) > 0:
                 if len(msg.content) == 1:
                     block_type = self.content_block_mapping.get(type(msg.content[0]))
                 else:

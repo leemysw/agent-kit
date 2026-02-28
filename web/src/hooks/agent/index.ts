@@ -93,7 +93,7 @@ function mergeAssistantContent(existingContent: any[], incomingContent: any[]): 
 function findAssistantMessageIndex(messages: Message[], messageId?: string): number {
   if (messageId) {
     const exactIndex = messages.findIndex(
-      msg => msg.role === 'assistant' && msg.messageId === messageId
+      msg => msg.role === 'assistant' && msg.message_id === messageId
     );
     if (exactIndex !== -1) {
       return exactIndex;
@@ -114,9 +114,9 @@ function createAssistantMessageFromStreamStart(
   roundId: string
 ): AssistantMessage {
   return {
-    messageId: event.messageId || crypto.randomUUID(),
-    agentId: messageAgentId,
-    roundId,
+    message_id: event.message_id || crypto.randomUUID(),
+    agent_id: messageAgentId,
+    round_id: roundId,
     role: 'assistant',
     content: [],
     timestamp: Date.now(),
@@ -177,10 +177,7 @@ function applyStreamEventToAssistantMessage(
 
   if (event.type === 'message_delta') {
     if (event.delta?.stop_reason) {
-      updatedMessage.stopReason = event.delta.stop_reason;
-    }
-    if (eventAny.usage) {
-      updatedMessage.usage = eventAny.usage;
+      updatedMessage.stop_reason = event.delta.stop_reason;
     }
   }
 
@@ -194,9 +191,9 @@ function handleStreamEventMessage(
   roundId: string
 ): Message[] {
   if (event.type === 'message_start') {
-    if (event.messageId) {
+    if (event.message_id) {
       const exists = messages.some(
-        msg => msg.role === 'assistant' && msg.messageId === event.messageId
+        msg => msg.role === 'assistant' && msg.message_id === event.message_id
       );
       if (exists) {
         return messages;
@@ -205,7 +202,7 @@ function handleStreamEventMessage(
     return [...messages, createAssistantMessageFromStreamStart(event, messageAgentId, roundId)];
   }
 
-  const targetIndex = findAssistantMessageIndex(messages, event.messageId);
+  const targetIndex = findAssistantMessageIndex(messages, event.message_id);
   if (targetIndex === -1) {
     return messages;
   }
@@ -218,7 +215,7 @@ function handleStreamEventMessage(
 }
 
 function mergeToolResultMessage(messages: Message[], message: AssistantMessage): Message[] | null {
-  if (!(message as any).isToolResult) {
+  if (!message.is_tool_result) {
     return null;
   }
 
@@ -252,8 +249,8 @@ function mergeToolResultMessage(messages: Message[], message: AssistantMessage):
 }
 
 function upsertMessageById(messages: Message[], message: Message): Message[] | null {
-  const existingIndex = message.messageId
-    ? messages.findIndex(item => item.messageId === message.messageId)
+  const existingIndex = message.message_id
+    ? messages.findIndex(item => item.message_id === message.message_id)
     : -1;
   if (existingIndex === -1) {
     return null;
@@ -309,10 +306,10 @@ function extractToolCallsFromMessage(message: Message): ToolCall[] {
     )
     .map(block => ({
       id: block.id,
-      toolName: block.name,
+      tool_name: block.name,
       input: block.input || {},
       status: 'running',
-      startTime: Date.now(),
+      start_time: Date.now(),
     }));
 }
 
@@ -456,9 +453,9 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
       // 创建用户消息
       const message_id = crypto.randomUUID();
       const userMessage: Message = {
-        messageId: message_id,
-        roundId: message_id,
-        agentId: agentId,
+        message_id: message_id,
+        round_id: message_id,
+        agent_id: agentId,
         role: 'user',
         content,
         timestamp: Date.now(),
@@ -491,7 +488,7 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
   const stopGeneration = useCallback(() => {
     const latestUserRoundId = [...messages]
       .reverse()
-      .find(message => message.role === 'user')?.roundId;
+      .find(message => message.role === 'user')?.round_id;
 
     console.debug('[useAgentSession] 停止生成被调用:', {
       agentId,
@@ -572,7 +569,7 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
     try {
       await deleteRoundApi(agentId, roundId);
       // 从本地消息中移除
-      setMessages(prev => prev.filter(m => m.roundId !== roundId));
+      setMessages(prev => prev.filter(m => m.round_id !== roundId));
       console.debug('[deleteRound] 删除成功:', roundId);
     } catch (err) {
       console.error('[deleteRound] 删除失败:', err);
@@ -592,7 +589,7 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
     }
 
     // 找到最后一轮的用户消息
-    const lastUserMessage = messages.findLast(m => m.role === 'user' && m.messageId === roundId);
+    const lastUserMessage = messages.findLast(m => m.role === 'user' && m.message_id === roundId);
     console.debug('[regenerate] 找到最后一轮用户消息:', lastUserMessage);
 
     if (!lastUserMessage) {

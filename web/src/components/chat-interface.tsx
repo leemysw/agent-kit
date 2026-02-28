@@ -26,7 +26,7 @@ function groupMessagesByRound(messages: Message[]): Map<string, Message[]> {
   const groups = new Map<string, Message[]>();
 
   for (const msg of messages) {
-    const roundId = msg.roundId || msg.messageId; // 回退到 messageId
+    const roundId = msg.round_id || msg.message_id; // 回退到 messageId
     if (!groups.has(roundId)) {
       groups.set(roundId, []);
     }

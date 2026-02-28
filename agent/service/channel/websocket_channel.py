@@ -26,7 +26,7 @@ from claude_agent_sdk import PermissionResult, PermissionResultAllow, Permission
 from fastapi import WebSocket
 
 from agent.service.channel.channel import MessageChannel, MessageSender, PermissionStrategy
-from agent.service.process.conversation_protocol_adapter import ConversationProtocolAdapter
+from agent.service.process.protocol_adapter import ProtocolAdapter
 from agent.service.schema.model_message import AError, AEvent, AMessage
 from agent.service.session_manager import session_manager
 from agent.utils.logger import logger
@@ -44,7 +44,7 @@ class WebSocketSender(MessageSender):
 
     def __init__(self, websocket: WebSocket):
         self.websocket = websocket
-        self.protocol_adapter = ConversationProtocolAdapter()
+        self.protocol_adapter = ProtocolAdapter()
 
     async def send_message(self, message: AMessage) -> None:
         event = self.protocol_adapter.build_ws_event(message)

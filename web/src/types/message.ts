@@ -52,11 +52,11 @@ export type ContentBlock =
 
 /** 基础消息接口 */
 export interface BaseMessage {
-  messageId: string;
-  roundId: string;            // 轮次ID
-  agentId: AgentId;           // 前端Chat ID
-  sessionId?: SessionId;      // SDK Session ID (可选，由后端返回)
-  ParentId?: string;          // 父消息ID (可选，由后端返回)
+  message_id: string;
+  round_id: string;            // 轮次ID
+  agent_id: AgentId;           // 前端Chat ID
+  session_id?: SessionId;      // SDK Session ID (可选，由后端返回)
+  parent_id?: string;          // 父消息ID (可选，由后端返回)
   role: MessageRole;
   timestamp: number;
 }
@@ -65,23 +65,28 @@ export interface BaseMessage {
 export interface UserMessage extends BaseMessage {
   role: 'user';
   content: string;
-  parentToolUseId?: string | null;
+  parent_tool_use_id?: string | null;
+}
+
+
+/** token使用消息 */
+export interface Usage {
+  input_tokens: number;
+  output_tokens: number;
+  cache_creation_tokens?: number;
+  cache_read_tokens?: number;
+
+  [key: string]: any;
 }
 
 /** 助手消息 */
 export interface AssistantMessage extends BaseMessage {
   role: 'assistant';
   content: ContentBlock[];
-  stopReason?: 'end_turn' | 'max_tokens' | 'stop_sequence' | 'tool_use';
+  stop_reason?: 'end_turn' | 'max_tokens' | 'stop_sequence' | 'tool_use';
   model?: string;
-  parentToolUseId?: string | null;
-  usage?: {
-    inputTokens: number;
-    outputTokens: number;
-    cacheCreationTokens?: number;
-    cacheReadTokens?: number;
-  };
-  isToolResult?: boolean;
+  parent_tool_use_id?: string | null;
+  is_tool_result?: boolean;
 }
 
 /** 系统消息 */
@@ -95,19 +100,13 @@ export interface SystemMessage extends BaseMessage {
 export interface ResultMessage extends BaseMessage {
   role: 'result';
   subtype: 'success' | 'error';
-  durationMs: number;
-  durationApiMs: number;
-  numTurns: number;
-  totalCostUsd?: number;
-  usage?: {
-    inputTokens: number;
-    outputTokens: number;
-    cacheReadInputTokens?: number;
-    cacheCreationInputTokens?: number;
-    [key: string]: any;
-  };
+  duration_ms: number;
+  duration_api_ms: number;
+  num_turns: number;
+  total_cost_usd?: number;
+  usage?: Usage;
   result?: string;
-  isError: boolean;
+  is_error: boolean;
 }
 
 /** 消息联合类型 */
@@ -121,14 +120,14 @@ export type ToolCallStatus = 'pending' | 'running' | 'success' | 'error';
 /** 工具调用记录 */
 export interface ToolCall {
   id: string;
-  toolName: string;
+  tool_name: string;
   input: ToolInput;
   output?: ToolOutput;
   status: ToolCallStatus;
-  startTime: number;
-  endTime?: number;
+  start_time: number;
+  end_time?: number;
   error?: string;
-  parentToolUseId?: string | null;
+  parent_tool_use_id?: string | null;
 }
 
 // ==================== 消息流事件 ====================
@@ -149,38 +148,5 @@ export interface StreamEvent {
   delta?: any;
   content_block?: ContentBlock;
   message?: Partial<AssistantMessage>;
-  messageId?: string;
-}
-
-// ==================== 消息统计 ====================
-
-/** 消息统计信息 */
-export interface MessageStats {
-  totalMessages: number;
-  userMessages: number;
-  assistantMessages: number;
-  systemMessages: number;
-  totalTokens: number;
-  totalCost: number;
-  averageResponseTime: number;
-}
-
-// ==================== 消息过滤和搜索 ====================
-
-/** 消息过滤选项 */
-export interface MessageFilter {
-  role?: MessageRole;
-  startDate?: Date;
-  endDate?: Date;
-  searchText?: string;
-  hasToolUse?: boolean;
-}
-
-/** 消息排序选项 */
-export type MessageSortBy = 'timestamp' | 'role' | 'tokens';
-export type MessageSortOrder = 'asc' | 'desc';
-
-export interface MessageSort {
-  by: MessageSortBy;
-  order: MessageSortOrder;
+  message_id?: string;
 }

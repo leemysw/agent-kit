@@ -110,16 +110,16 @@ export function MessageItem(
   // 统计信息
   const stats = useMemo(() => {
     if (!resultMessage) return null;
-    const cacheHit = resultMessage.usage?.cacheReadInputTokens;
+    const cacheHit = resultMessage.usage?.cache_read_tokens;
     return {
-      duration: resultMessage.durationMs >= 1000
-        ? `${(resultMessage.durationMs / 1000).toFixed(1)}s`
-        : `${resultMessage.durationMs}ms`,
+      duration: resultMessage.duration_ms >= 1000
+        ? `${(resultMessage.duration_ms / 1000).toFixed(1)}s`
+        : `${resultMessage.duration_ms}ms`,
       tokens: resultMessage.usage
-        ? `↑ ${resultMessage.usage.inputTokens} ↓ ${resultMessage.usage.outputTokens}`
+        ? `↑ ${resultMessage.usage.input_tokens} ↓ ${resultMessage.usage.output_tokens}`
         : null,
-      cost: resultMessage.totalCostUsd !== undefined
-        ? `$ ${resultMessage.totalCostUsd ? resultMessage.totalCostUsd.toFixed(4) : null}`
+      cost: resultMessage.total_cost_usd !== undefined
+        ? `$ ${resultMessage.total_cost_usd ? resultMessage.total_cost_usd.toFixed(4) : null}`
         : null,
       cacheHit: cacheHit && cacheHit > 0 ? `💾 ${cacheHit}` : null,
     };
@@ -242,7 +242,7 @@ export function MessageItem(
                         onClick={() => {
                           const newContent = prompt('编辑消息:', userContent);
                           if (newContent && newContent !== userContent) {
-                            onEditUserMessage(userMessage.messageId, newContent);
+                            onEditUserMessage(userMessage.message_id, newContent);
                           }
                         }}
                         className="p-1 rounded text-muted-foreground/50 hover:text-foreground transition-colors"

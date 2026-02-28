@@ -21,9 +21,6 @@ export type {
   AssistantMessage,
   SystemMessage,
   ResultMessage,
-  MessageStats,
-  MessageFilter,
-  MessageSort,
   ToolCall,
   ToolCallStatus
 } from '@/types/message';

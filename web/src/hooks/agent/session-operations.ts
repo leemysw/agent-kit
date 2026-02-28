@@ -95,18 +95,18 @@ function markInterruptedToolCalls(messages: Message[]): Message[] {
     // 获取最后一条消息的信息用于构造 ResultMessage
     const lastMessage = updatedMessages[updatedMessages.length - 1];
     const interruptedResultMessage: Message = {
-      messageId: `interrupted_result_${Date.now()}`,
-      roundId: lastMessage.roundId,
-      agentId: lastMessage.agentId,
-      sessionId: lastMessage.sessionId,
+      message_id: `interrupted_result_${Date.now()}`,
+      round_id: lastMessage.round_id,
+      agent_id: lastMessage.agent_id,
+      session_id: lastMessage.session_id,
       role: 'result',
       timestamp: Date.now(),
       subtype: 'error',
-      durationMs: 0,
-      durationApiMs: 0,
-      numTurns: 0,
+      duration_ms: 0,
+      duration_api_ms: 0,
+      num_turns: 0,
       result: '任务已中断（页面刷新或连接断开）',
-      isError: true,
+      is_error: true,
     } as Message;
 
     console.debug('[markInterruptedToolCalls] 添加虚拟 ResultMessage:', interruptedResultMessage);

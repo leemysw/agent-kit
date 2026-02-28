@@ -23,7 +23,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from agent.service.process.conversation_protocol_adapter import ConversationProtocolAdapter
+from agent.service.process.protocol_adapter import ProtocolAdapter
 from agent.service.schema.model_session import ASession
 from agent.service.session.session_router import build_session_key
 from agent.service.session_manager import session_manager
@@ -31,7 +31,7 @@ from agent.service.session_store import session_store
 from agent.shared.server.common import resp
 
 router = APIRouter(tags=["session"])
-protocol_adapter = ConversationProtocolAdapter()
+protocol_adapter = ProtocolAdapter()
 
 
 # =====================================================

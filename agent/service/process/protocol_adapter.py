@@ -1,7 +1,7 @@
 # !/usr/bin/env python
 # -*- coding: utf-8 -*-
 # =====================================================
-# @File   ：conversation_protocol_adapter.py
+# @File   ：protocol_adapter.py
 # @Date   ：2026/02/27 15:21
 # @Author ：leemysw
 # 2026/02/27 15:21   Create
@@ -23,7 +23,7 @@ from agent.service.schema.model_message import AEvent, AMessage
 from agent.service.session.session_router import parse_session_key
 
 
-class ConversationProtocolAdapter:
+class ProtocolAdapter:
     """会话协议适配器。
 
     该类是后端消息协议的唯一出口，负责消除 SDK 原始结构差异，
@@ -78,14 +78,14 @@ class ConversationProtocolAdapter:
 
     def _apply_snapshot(self, history: List[Dict[str, Any]], snapshot: Dict[str, Any]) -> None:
         """对历史列表应用快照（upsert + tool_result 合并）。"""
-        if snapshot.get("role") == "assistant" and snapshot.get("isToolResult"):
+        if snapshot.get("role") == "assistant" and snapshot.get("is_tool_result"):
             if self._merge_tool_result_snapshot(history, snapshot):
                 return
 
-        message_id = snapshot.get("messageId")
+        message_id = snapshot.get("message_id")
         if message_id:
             for idx, item in enumerate(history):
-                if item.get("messageId") != message_id:
+                if item.get("message_id") != message_id:
                     continue
                 if item.get("role") == "assistant" and snapshot.get("role") == "assistant":
                     merged = dict(snapshot)
@@ -106,10 +106,10 @@ class ConversationProtocolAdapter:
         if not isinstance(content, list):
             return False
 
-        target_message_id = tool_result.get("targetMessageId")
+        target_message_id = tool_result.get("target_message_id")
         if target_message_id:
             for idx, item in enumerate(history):
-                if item.get("messageId") != target_message_id:
+                if item.get("message_id") != target_message_id:
                     continue
                 if item.get("role") != "assistant":
                     break
@@ -153,11 +153,11 @@ class ConversationProtocolAdapter:
 
         payload = self._to_dict(message.message)
         base = {
-            "messageId": message.message_id,
-            "roundId": message.round_id,
-            "agentId": self._resolve_agent_id(message.session_key, message.agent_id),
-            "sessionId": message.session_id,
-            "ParentId": message.parent_id,
+            "message_id": message.message_id,
+            "round_id": message.round_id,
+            "agent_id": self._resolve_agent_id(message.session_key, message.agent_id),
+            "session_id": message.session_id,
+            "parent_id": message.parent_id,
             "timestamp": self._to_timestamp_ms(message.timestamp),
         }
 
@@ -169,9 +169,9 @@ class ConversationProtocolAdapter:
                 "role": "assistant",
                 "content": blocks,
                 "model": payload.get("model"),
-                "stopReason": payload.get("stop_reason"),
+                "stop_reason": payload.get("stop_reason"),
                 "usage": self._normalize_usage(payload.get("usage")),
-                "parentToolUseId": payload.get("parent_tool_use_id"),
+                "parent_tool_use_id": payload.get("parent_tool_use_id"),
             }
             return snapshot
 
@@ -183,11 +183,11 @@ class ConversationProtocolAdapter:
                     **base,
                     "role": "assistant",
                     "content": blocks,
-                    "isToolResult": True,
-                    "parentToolUseId": payload.get("parent_tool_use_id"),
+                    "is_tool_result": True,
+                    "parent_tool_use_id": payload.get("parent_tool_use_id"),
                 }
                 if target_message_id:
-                    snapshot["targetMessageId"] = target_message_id
+                    snapshot["target_message_id"] = target_message_id
                 return snapshot
 
             text = self._extract_user_text(payload.get("content"))
@@ -195,7 +195,7 @@ class ConversationProtocolAdapter:
                 **base,
                 "role": "user",
                 "content": text,
-                "parentToolUseId": payload.get("parent_tool_use_id"),
+                "parent_tool_use_id": payload.get("parent_tool_use_id"),
             }
 
         if message.message_type == "result":
@@ -206,10 +206,10 @@ class ConversationProtocolAdapter:
                 **base,
                 "role": "result",
                 "subtype": normalized_subtype,
-                "durationMs": payload.get("duration_ms", 0),
-                "durationApiMs": payload.get("duration_api_ms", 0),
-                "numTurns": payload.get("num_turns", 0),
-                "totalCostUsd": payload.get("total_cost_usd"),
+                "duration_ms": payload.get("duration_ms", 0),
+                "duration_api_ms": payload.get("duration_api_ms", 0),
+                "num_turns": payload.get("num_turns", 0),
+                "total_cost_usd": payload.get("total_cost_usd"),
                 "usage": usage,
                 "result": payload.get("result"),
                 "isError": payload.get("is_error", False),
@@ -225,7 +225,7 @@ class ConversationProtocolAdapter:
             return None
 
         delta: Dict[str, Any] = {
-            "messageId": message.message_id,
+            "message_id": message.message_id,
             "type": event.get("type"),
             "index": event.get("index"),
             "delta": event.get("delta"),
@@ -267,7 +267,7 @@ class ConversationProtocolAdapter:
         return current
 
     def _resolve_agent_id(self, session_key: str, fallback: str) -> str:
-        """从 session_key 解析前端 agentId。"""
+        """从 session_key 解析前端 agent_id。"""
         try:
             parsed = parse_session_key(session_key)
             ref = parsed.get("ref")
@@ -281,10 +281,10 @@ class ConversationProtocolAdapter:
         if not raw:
             return None
         normalized = {
-            "inputTokens": raw.get("input_tokens", 0),
-            "outputTokens": raw.get("output_tokens", 0),
-            "cacheReadInputTokens": raw.get("cache_read_input_tokens"),
-            "cacheCreationInputTokens": raw.get("cache_creation_input_tokens"),
+            "input_tokens": raw.get("input_tokens", 0),
+            "output_tokens": raw.get("output_tokens", 0),
+            "cache_read_input_tokens": raw.get("cache_read_input_tokens"),
+            "cache_creation_input_tokens": raw.get("cache_creation_input_tokens"),
         }
         normalized.update(raw)
         return normalized
@@ -347,14 +347,14 @@ class ConversationProtocolAdapter:
         index_map: Dict[str, int] = {}
 
         for idx, block in enumerate(merged):
-            key = ConversationProtocolAdapter._content_block_key(block)
+            key = ProtocolAdapter._content_block_key(block)
             if key:
                 index_map[key] = idx
 
         for block in incoming_blocks:
             if not isinstance(block, dict):
                 continue
-            key = ConversationProtocolAdapter._content_block_key(block)
+            key = ProtocolAdapter._content_block_key(block)
             if not key:
                 merged.append(dict(block))
                 continue
@@ -408,4 +408,3 @@ class ConversationProtocolAdapter:
         if hasattr(value, "__dict__"):
             return dict(value.__dict__)
         return {}
-

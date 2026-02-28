@@ -17,7 +17,7 @@ psutil>=5.9.4
 
 # agent requirements
 
-claude-agent-sdk>=0.1.18
+claude-agent-sdk>=0.1.43
 
 
 # channel requirements

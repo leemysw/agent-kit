@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { TodoItem } from "@/components/todo/agent-task-widget";
-import { Message } from "@/types/message";
+import { Message, ResultMessage } from "@/types/message";
+
+function isSameSessionMessage(message: Message, externalAgentId: string): boolean {
+  return !message.agent_id || message.agent_id === externalAgentId;
+}
 
 export const useExtractTodos = (
   messages: Message[],
@@ -23,6 +27,8 @@ export const useExtractTodos = (
     }
 
     let latestTodos: TodoItem[] = [];
+    let latestTodoRoundId: string | null = null;
+    let latestTodoIndex = -1;
     let found = false;
 
     // Iterate backwards to find the latest TodoWrite tool use
@@ -31,7 +37,7 @@ export const useExtractTodos = (
       const msg = messages[i];
 
       // Skip messages that don't belong to current session
-      if (msg.agentId && msg.agentId !== externalAgentId) {
+      if (!isSameSessionMessage(msg, externalAgentId)) {
         continue;
       }
 
@@ -40,6 +46,8 @@ export const useExtractTodos = (
           if (block.type === "tool_use" && block.name === "TodoWrite") {
             if (block.input && Array.isArray(block.input.todos)) {
               latestTodos = block.input.todos;
+              latestTodoRoundId = msg.round_id;
+              latestTodoIndex = i;
               found = true;
             }
           }
@@ -48,7 +56,39 @@ export const useExtractTodos = (
       if (found) break;
     }
 
-    setTodos(found ? latestTodos : []);
+    if (!found || latestTodos.length === 0 || !latestTodoRoundId) {
+      setTodos([]);
+      return;
+    }
+
+    // 终态收敛：该轮异常结束（中断/错误）时直接清空 Todo，避免右上角 Agent Plan 残留
+    const roundResult = [...messages]
+      .reverse()
+      .find((msg): msg is ResultMessage =>
+        msg.role === "result"
+        && msg.round_id === latestTodoRoundId
+        && isSameSessionMessage(msg, externalAgentId)
+      );
+
+    if (roundResult && roundResult.is_error) {
+      setTodos([]);
+      return;
+    }
+
+    // 跨轮兜底：如果已进入新轮次而旧轮无终态，也清空旧 Todo，避免挂住
+    const hasLaterRoundMessage = messages.slice(latestTodoIndex + 1).some((msg) =>
+      isSameSessionMessage(msg, externalAgentId)
+      && msg.round_id
+      && msg.round_id !== latestTodoRoundId
+      && msg.role !== "system"
+    );
+
+    if (hasLaterRoundMessage && !roundResult) {
+      setTodos([]);
+      return;
+    }
+
+    setTodos(latestTodos);
   }, [messages, externalAgentId]);
 
   return todos;
