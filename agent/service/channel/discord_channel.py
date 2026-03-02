@@ -33,7 +33,6 @@ from agent.service.schema.model_message import AError, AEvent, AMessage
 from agent.service.session.session_router import build_session_key
 from agent.utils.logger import logger
 
-
 # =====================================================
 # 常量
 # =====================================================
@@ -74,10 +73,10 @@ class AutoAllowPermissionStrategy(PermissionStrategy):
         self.allowed_tools = allowed_tools or self.DEFAULT_ALLOWED_TOOLS
 
     async def request_permission(
-        self,
-        agent_id: str,
-        tool_name: str,
-        input_data: dict[str, Any],
+            self,
+            agent_id: str,
+            tool_name: str,
+            input_data: dict[str, Any],
     ) -> PermissionResult:
         """白名单工具自动允许，其余拒绝"""
         if tool_name in self.allowed_tools:
@@ -183,11 +182,11 @@ class DiscordChannel(MessageChannel):
     """Discord 通道"""
 
     def __init__(
-        self,
-        bot_token: str,
-        trigger_word: str = "@agent-kit",
-        allowed_guild_ids: Optional[Set[int]] = None,
-        allowed_tool_names: Optional[Set[str]] = None,
+            self,
+            bot_token: str,
+            trigger_word: Optional[str] = None,
+            allowed_guild_ids: Optional[Set[int]] = None,
+            allowed_tool_names: Optional[Set[str]] = None,
     ):
         self._bot_token = bot_token
         self._trigger_word = trigger_word.lower()
@@ -238,9 +237,10 @@ class DiscordChannel(MessageChannel):
                 return
 
         # 触发词检查
-        # content = message.content.strip()
-        # if not self._trigger_pattern.search(content):
-        #     return
+        content = message.content.strip()
+        if self._trigger_word:
+            if not self._trigger_pattern.search(content):
+                return
 
         # 移除触发词，提取用户消息
         user_content = self._trigger_pattern.sub("", message.content).strip()
@@ -271,10 +271,10 @@ class DiscordChannel(MessageChannel):
             await self._process_message(session_key, user_content, message.channel)
 
     async def _process_message(
-        self,
-        session_key: str,
-        content: str,
-        channel: discord.abc.Messageable,
+            self,
+            session_key: str,
+            content: str,
+            channel: discord.abc.Messageable,
     ) -> None:
         """使用 ChatHandler 处理消息"""
         from agent.service.handler.chat_handler import ChatHandler

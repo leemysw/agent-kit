@@ -18,6 +18,8 @@ from agent.shared.server.common.base_depends import extract_request_id
 api_router = APIRouter(dependencies=[Depends(extract_request_id)], prefix=settings.API_PREFIX)
 
 # Include the websocket router
-api_router.include_router(websocket_router, prefix="/v1")
+if settings.WEBSOCKET_ENABLED:
+    api_router.include_router(websocket_router, prefix="/v1")
+
 # Include the history router
 api_router.include_router(session_router, prefix="/v1")

@@ -82,6 +82,8 @@ class Settings(BaseSettings):
     # =====================================================
     # 消息通道配置
     # =====================================================
+    WEBSOCKET_ENABLED: bool = True
+
     DISCORD_ENABLED: bool = False
     DISCORD_BOT_TOKEN: str = ""
     DISCORD_ALLOWED_GUILDS: str = ""  # 逗号分隔的 Guild ID
