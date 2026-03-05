@@ -1,7 +1,10 @@
 /**
  * Session Store - 主入口
  *
- * 使用 Zustand 管理会话状态
+ * [INPUT]: 依赖 zustand, ./types, ./actions
+ * [OUTPUT]: 对外提供 useSessionStore
+ * [POS]: store/session 模块主入口
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { create } from 'zustand';
@@ -9,30 +12,22 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import { SessionStoreState } from './types';
 import * as actions from './actions';
 
-// ==================== Store创建 ====================
+// ==================== Store 创建 ====================
 
 export const useSessionStore = create<SessionStoreState>()(
   persist(
     (set, get) => ({
-      // 初始状态
       sessions: [],
-      currentAgentId: null,
+      current_session_key: null,
       loading: false,
       error: null,
 
-      // 基础操作
       createSession: actions.createSessionAction(set, get),
       deleteSession: actions.deleteSessionAction(set, get),
       updateSession: actions.updateSessionAction(set),
       setCurrentSession: actions.setCurrentSessionAction(set),
-
-      // 查询操作
       getSession: actions.getSessionAction(get),
-
-      // 服务器同步
       loadSessionsFromServer: actions.loadSessionsFromServerAction(set, get),
-
-      // 清理
       clearAllSessions: actions.clearAllSessionsAction(set),
     }),
     {
@@ -40,17 +35,13 @@ export const useSessionStore = create<SessionStoreState>()(
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         sessions: state.sessions,
-        currentAgentId: state.currentAgentId,
+        current_session_key: state.current_session_key,
       }),
-      onRehydrateStorage: () => (state) => {
-        console.debug('[Store] rehydrated from localStorage:', state?.sessions?.length || 0);
-        console.debug('[Store] localStorage currentAgentId:', state?.currentAgentId);
-      },
     }
   )
 );
 
-// ==================== 导出类型 ====================
+// ==================== 导出 ====================
 
 export type { SessionStoreState } from './types';
-export { generateAgentId, createDefaultSession } from './utils';
+export { generateSessionKey, createDefaultSession } from './utils';

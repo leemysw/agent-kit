@@ -1,16 +1,19 @@
 /**
  * useAgentSession Hook 类型定义
+ *
+ * [INPUT]: 依赖 @/types 的 Message, ToolCall
+ * [OUTPUT]: 对外提供 UseAgentSessionOptions, UseAgentSessionReturn
+ * [POS]: hooks/agent 模块的类型
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import { Message, ToolCall, AgentId } from '@/types';
+import { Message, ToolCall } from '@/types';
 import { UserQuestionAnswer } from '@/types/ask-user-question';
 
 // ==================== Hook 选项 ====================
 
 export interface UseAgentSessionOptions {
-    /** WebSocket服务器URL */
     wsUrl?: string;
-    /** 错误回调 */
     onError?: (error: Error) => void;
 }
 
@@ -19,26 +22,23 @@ export interface UseAgentSessionOptions {
 export interface UseAgentSessionReturn {
     messages: Message[];
     toolCalls: ToolCall[];
-    agentId: AgentId | null;
+    /** 当前 session 路由键 */
+    sessionKey: string | null;
     isLoading: boolean;
     error: string | null;
     sendMessage: (content: string) => Promise<void>;
     startSession: () => void;
-    loadSession: (agentId: AgentId) => void;
+    loadSession: (key: string) => void;
     clearSession: () => void;
     resetSession: () => void;
-    loadHistoryMessages: (agentId: AgentId) => Promise<void>;
+    loadHistoryMessages: (key: string) => Promise<void>;
     stopGeneration: () => void;
-    /** 删除一轮对话 */
     deleteRound: (roundId: string) => Promise<void>;
-    /** 重新生成最后一轮回答 */
     regenerate: (roundId: string) => Promise<void>;
-    // 权限相关
     pendingPermission: {
         request_id: string;
         tool_name: string;
         tool_input: Record<string, any>;
     } | null;
-    /** 权限响应（也用于 AskUserQuestion） */
     sendPermissionResponse: (decision: 'allow' | 'deny', userAnswers?: UserQuestionAnswer[]) => void;
 }

@@ -102,7 +102,7 @@ export function AgentOptions(
   // 工作目录状态
   const [workingDirectory, setWorkingDirectory] = useState(initialOptions.cwd || '～/.agent');
   // 技能配置状态
-  const [skillsEnabled, setSkillsEnabled] = useState(initialOptions.skillsEnabled ?? false);
+  const [skillsEnabled, setSkillsEnabled] = useState(initialOptions.skillsEnabled ?? true);
   const [settingSources, setSettingSources] = useState<('user' | 'project')[]>(
     initialOptions.settingSources || ['user', 'project']
   );
@@ -145,7 +145,7 @@ export function AgentOptions(
   // 处理保存
   const handleSave = () => {
     // 如果启用技能，自动添加 "Skill" 到 allowedTools
-    let finalAllowedTools = [...allowedTools];
+    const finalAllowedTools = [...allowedTools];
     if (skillsEnabled && !finalAllowedTools.includes('Skill')) {
       finalAllowedTools.push('Skill');
     }
@@ -384,7 +384,7 @@ export function AgentOptions(
                     <div>
                       <p className="text-sm font-medium text-orange-700">安全提示</p>
                       <p className="text-xs text-orange-600/90 mt-1 leading-relaxed">
-                        被选中的工具将被"预先授权"，Agent 调用这些工具时将不会请求您的确认。请仅为您完全信任的工具开启此选项。
+                        被选中的工具将被`预先授权`，Agent 调用这些工具时将不会请求您的确认。请仅为您完全信任的工具开启此选项。
                       </p>
                     </div>
                   </div>

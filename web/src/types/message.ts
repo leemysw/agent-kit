@@ -4,7 +4,7 @@
  * 本文件定义前端使用的消息数据结构
  */
 
-import { AgentId, SessionId, ToolInput, ToolOutput } from './sdk';
+import { SessionId, ToolInput, ToolOutput } from './sdk';
 
 // ==================== 消息角色 ====================
 
@@ -54,7 +54,7 @@ export type ContentBlock =
 export interface BaseMessage {
   message_id: string;
   round_id: string;            // 轮次ID
-  agent_id: AgentId;           // 前端Chat ID
+  agent_id: string;            // session 路由键
   session_id?: SessionId;      // SDK Session ID (可选，由后端返回)
   parent_id?: string;          // 父消息ID (可选，由后端返回)
   role: MessageRole;
@@ -74,7 +74,7 @@ export interface Usage {
   input_tokens: number;
   output_tokens: number;
   cache_creation_tokens?: number;
-  cache_read_tokens?: number;
+  cache_read_input_tokens?: number;
 
   [key: string]: any;
 }

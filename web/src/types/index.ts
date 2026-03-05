@@ -12,3 +12,6 @@ export * from './message';
 
 // 会话相关类型
 export * from './session';
+
+// Agent相关类型
+export * from './agent';

@@ -14,7 +14,7 @@ import { Message } from "@/types/message";
 
 
 interface ChatInterfaceProps {
-  agentId: string | null;
+  sessionKey: string | null;
   onNewSession: () => void;
 }
 
@@ -36,14 +36,14 @@ function groupMessagesByRound(messages: Message[]): Map<string, Message[]> {
   return groups;
 }
 
-export function ChatInterface({ agentId: externalAgentId, onNewSession: onNewSession }: ChatInterfaceProps) {
+export function ChatInterface({ sessionKey: externalSessionKey, onNewSession: onNewSession }: ChatInterfaceProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const {
     error,
     messages,
     toolCalls,
-    agentId,
+    sessionKey,
     isLoading,
     pendingPermission,
     sendMessage,
@@ -59,10 +59,10 @@ export function ChatInterface({ agentId: externalAgentId, onNewSession: onNewSes
   });
 
   // Extract todos using custom hook
-  const todos = useExtractTodos(messages, externalAgentId);
+  const todos = useExtractTodos(messages, externalSessionKey);
 
   // 响应式会话加载 - 统一处理外部 agentId 变化
-  useSessionLoader(externalAgentId, loadSession, "ChatInterface");
+  useSessionLoader(externalSessionKey, loadSession, "ChatInterface");
 
   // 按 roundId 分组消息
   const messageGroups = useMemo(() => {
@@ -102,7 +102,7 @@ export function ChatInterface({ agentId: externalAgentId, onNewSession: onNewSes
   const roundIds = Array.from(messageGroups.keys());
 
   return (
-    <div className="flex-1 flex flex-col h-full relative overflow-hidden bg-background font-mono">
+    <div className="flex-1 flex flex-col h-full relative overflow-hidden bg-background">
       {/* Grid Background */}
       <div
         className="absolute inset-0 opacity-[0.03] pointer-events-none"
@@ -134,12 +134,12 @@ export function ChatInterface({ agentId: externalAgentId, onNewSession: onNewSes
       )}
 
       {/* 如果没有agentId,显示空状态 */}
-      {!externalAgentId ? (
+      {!externalSessionKey ? (
         <EmptyState onNewSession={onNewSession} />
       ) : (
         <>
           {/* Header */}
-          <ChatHeader agentId={agentId} isLoading={isLoading} todos={todos} />
+          <ChatHeader sessionKey={sessionKey} isLoading={isLoading} todos={todos} />
 
           {/* Messages Area */}
           <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-8 relative z-0 scroll-smooth">

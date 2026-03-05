@@ -5,3 +5,4 @@
  */
 
 export { useSessionStore } from './session';
+export { useAgentStore } from './agent';

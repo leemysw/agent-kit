@@ -2,13 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { TodoItem } from "@/components/todo/agent-task-widget";
 import { Message, ResultMessage } from "@/types/message";
 
-function isSameSessionMessage(message: Message, externalAgentId: string): boolean {
-  return !message.agent_id || message.agent_id === externalAgentId;
+function isSameSessionMessage(message: Message, externalSessionKey: string): boolean {
+  return !message.agent_id || message.agent_id === externalSessionKey;
 }
 
 export const useExtractTodos = (
   messages: Message[],
-  externalAgentId: string | null
+  externalSessionKey: string | null
 ) => {
   const [todos, setTodos] = useState<TodoItem[]>([]);
   const prevSessionRef = useRef<string | null>(null);
@@ -16,13 +16,13 @@ export const useExtractTodos = (
   // Extract todos from messages (reset on session change)
   useEffect(() => {
     // Session changed - reset todos immediately
-    if (prevSessionRef.current !== externalAgentId) {
+    if (prevSessionRef.current !== externalSessionKey) {
       setTodos([]);
-      prevSessionRef.current = externalAgentId;
+      prevSessionRef.current = externalSessionKey;
     }
 
     // No session - don't extract
-    if (!externalAgentId || messages.length === 0) {
+    if (!externalSessionKey || messages.length === 0) {
       return;
     }
 
@@ -37,7 +37,7 @@ export const useExtractTodos = (
       const msg = messages[i];
 
       // Skip messages that don't belong to current session
-      if (!isSameSessionMessage(msg, externalAgentId)) {
+      if (!isSameSessionMessage(msg, externalSessionKey)) {
         continue;
       }
 
@@ -67,7 +67,7 @@ export const useExtractTodos = (
       .find((msg): msg is ResultMessage =>
         msg.role === "result"
         && msg.round_id === latestTodoRoundId
-        && isSameSessionMessage(msg, externalAgentId)
+        && isSameSessionMessage(msg, externalSessionKey)
       );
 
     if (roundResult && roundResult.is_error) {
@@ -77,7 +77,7 @@ export const useExtractTodos = (
 
     // 跨轮兜底：如果已进入新轮次而旧轮无终态，也清空旧 Todo，避免挂住
     const hasLaterRoundMessage = messages.slice(latestTodoIndex + 1).some((msg) =>
-      isSameSessionMessage(msg, externalAgentId)
+      isSameSessionMessage(msg, externalSessionKey)
       && msg.round_id
       && msg.round_id !== latestTodoRoundId
       && msg.role !== "system"
@@ -89,7 +89,7 @@ export const useExtractTodos = (
     }
 
     setTodos(latestTodos);
-  }, [messages, externalAgentId]);
+  }, [messages, externalSessionKey]);
 
   return todos;
 };

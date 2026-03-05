@@ -6,13 +6,13 @@ import { AgentTaskWidget, TodoItem } from "@/components/todo/agent-task-widget";
 import { LoadingOrb } from "@/components/header/loading";
 
 interface ChatHeaderProps {
-  agentId: string | null;
+  sessionKey: string | null;
   isLoading: boolean;
   todos?: TodoItem[];
 }
 
 
-const ChatHeader = memo(({agentId, isLoading, todos = []}: ChatHeaderProps) => {
+const ChatHeader = memo(({sessionKey, isLoading, todos = []}: ChatHeaderProps) => {
   const activeTask = todos.find(t => t.status === "in_progress");
 
   return (
@@ -23,7 +23,7 @@ const ChatHeader = memo(({agentId, isLoading, todos = []}: ChatHeaderProps) => {
         <span>TERMINAL_ID: CA-9000</span>
         <span className="text-primary/20">|</span>
         <span className="text-accent">
-          {agentId ? `SESSION: ${agentId}` : "NEW_SESSION"}
+          {sessionKey ? `SESSION: ${sessionKey}` : "NEW_SESSION"}
         </span>
         {activeTask && (
           <>

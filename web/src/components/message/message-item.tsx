@@ -110,7 +110,7 @@ export function MessageItem(
   // 统计信息
   const stats = useMemo(() => {
     if (!resultMessage) return null;
-    const cacheHit = resultMessage.usage?.cache_read_tokens;
+    const cacheHit = resultMessage.usage?.cache_read_input_tokens;
     return {
       duration: resultMessage.duration_ms >= 1000
         ? `${(resultMessage.duration_ms / 1000).toFixed(1)}s`

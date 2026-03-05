@@ -1,36 +1,27 @@
 import { useEffect, useRef } from "react";
 
+/**
+ * Session 加载器 — 监听 session_key 变化并触发加载
+ *
+ * [INPUT]: 外部传入 session_key + loadSession 回调
+ * [OUTPUT]: 无（副作用 hook）
+ * [POS]: hooks 模块的 session 加载逻辑
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
 export const useSessionLoader = (
-  externalAgentId: string | null,
-  loadSession: (agentId: string) => void,
+  sessionKey: string | null,
+  loadSession: (key: string) => void,
   debugName = "useSessionLoader"
 ) => {
-  const prevExternalAgentId = useRef<string | null>(null);
+  const prevKey = useRef<string | null>(null);
 
   useEffect(() => {
-    console.debug(`[${debugName}] useEffect触发`, {
-      prevAgentId: prevExternalAgentId.current,
-      newAgentId: externalAgentId,
-      loadSession: typeof loadSession
-    });
+    if (prevKey.current === sessionKey) return;
+    prevKey.current = sessionKey;
 
-    // 检查外部ID是否真的发生了变化
-    if (prevExternalAgentId.current === externalAgentId) {
-      console.debug(`[${debugName}] AgentId没有变化，跳过`);
-      return; // 没有变化，不处理
+    if (sessionKey) {
+      console.debug(`[${debugName}] Loading session:`, sessionKey);
+      loadSession(sessionKey);
     }
-
-    // 更新ref
-    prevExternalAgentId.current = externalAgentId;
-
-    if (externalAgentId) {
-      // 加载指定会话
-      console.debug(`[${debugName}] Loading session:`, externalAgentId);
-      loadSession(externalAgentId);
-    } else {
-      // 外部没有选中任何会话，不自动创建
-      // 用户需要点击"New Session"按钮来创建
-      console.debug(`[${debugName}] No session selected`);
-    }
-  }, [externalAgentId, loadSession, debugName]);
+  }, [sessionKey, loadSession, debugName]);
 };

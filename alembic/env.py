@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # 导入你的模型和Base
 from agent.shared.database.async_sqlalchemy import Base
-from agent.service.db.models import Session, Message
+from agent.service.db.models import Agent, Session, Message
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

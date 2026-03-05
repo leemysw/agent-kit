@@ -2,22 +2,22 @@
  * Session 操作函数
  */
 
-import { AgentId, Message } from '@/types';
+import { Message } from '@/types';
 import { getSessionMessages } from "@/lib/agent-api";
 
 /**
  * 创建新session操作
  */
 export function createStartSession(
-  setAgentId: (id: AgentId) => void,
+  setstring: (id: string) => void,
   setMessages: (messages: Message[]) => void,
   setToolCalls: (calls: any[]) => void,
   setError: (error: string | null) => void,
   setIsLoading: (loading: boolean) => void
 ) {
   return () => {
-    const newAgentId = crypto.randomUUID();
-    setAgentId(newAgentId);
+    const newstring = crypto.randomUUID();
+    setstring(newstring);
     setMessages([]);
     setToolCalls([]);
     setError(null);
@@ -118,19 +118,19 @@ function markInterruptedToolCalls(messages: Message[]): Message[] {
 
 /**
  * 加载指定会话
- * 设置agentId并从后端加载历史消息
+ * 设置sessionKey并从后端加载历史消息
  */
 export const createLoadSession = (
-  setAgentId: (id: AgentId) => void,
+  setstring: (id: string) => void,
   setMessages: (messages: Message[]) => void,
   setError: (error: string | null) => void,
-) => async (id: AgentId): Promise<void> => {
+) => async (id: string): Promise<void> => {
   try {
     console.debug('[loadSession] 开始加载session:', id);
 
-    // 1. 设置agentId
-    console.debug('[loadSession] 设置agentId:', id);
-    setAgentId(id);
+    // 1. 设置sessionKey
+    console.debug('[loadSession] 设置sessionKey:', id);
+    setstring(id);
 
     // 2. 清空当前消息
     setMessages([]);
@@ -162,7 +162,7 @@ export function createClearSession(
   setToolCalls: (calls: any[]) => void,
   setError: (error: string | null) => void,
   setIsLoading: (loading: boolean) => void,
-  setAgentId: (id: AgentId | null) => void,
+  setstring: (id: string | null) => void,
   abortControllerRef: React.RefObject<AbortController | null>
 ) {
   return () => {
@@ -170,7 +170,7 @@ export function createClearSession(
     setToolCalls([]);
     setError(null);
     setIsLoading(false);
-    setAgentId(null);
+    setstring(null);
 
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -193,18 +193,18 @@ export function createResetSession(startSession: () => void) {
  */
 export function createLoadHistoryMessages(
   setMessages: (messages: Message[]) => void,
-  updateSession: (id: AgentId, params: any) => void,
+  updateSession: (id: string, params: any) => void,
 ) {
-  return async (agentId: AgentId) => {
+  return async (sessionKey: string) => {
     try {
-      const messages = await getSessionMessages(agentId);
+      const messages = await getSessionMessages(sessionKey);
       if (Array.isArray(messages)) {
         const finalMessages = markInterruptedToolCalls(messages);
         console.debug(`[useAgentSession] Loaded ${finalMessages.length} messages`);
         setMessages(finalMessages);
 
         // 同时更新到session store中缓存
-        updateSession(agentId, { messages: finalMessages });
+        updateSession(sessionKey, { messages: finalMessages });
       }
     } catch (err) {
       console.error('[useAgentSession] Failed to load history:', err);

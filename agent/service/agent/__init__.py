@@ -11,11 +11,11 @@
 """
 智能体模块
 
-[OUTPUT]: 对外提供 Workspace, get_workspace
+[OUTPUT]: 对外提供 AgentWorkspace, get_workspace_base_path
 [POS]: agent/service/agent 的模块入口
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 """
 
-from agent.service.agent.workspace import Workspace, get_workspace
+from agent.service.agent.workspace import AgentWorkspace, get_workspace_base_path
 
-__all__ = ["Workspace", "get_workspace"]
+__all__ = ["AgentWorkspace", "get_workspace_base_path"]

@@ -1,8 +1,13 @@
 /**
  * Session Store Actions
+ *
+ * [INPUT]: 依赖 @/types, @/lib/agent-api
+ * [OUTPUT]: 对外提供 session CRUD actions
+ * [POS]: store/session 模块的操作函数
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import { AgentId, CreateSessionParams, Session, UpdateSessionParams, } from '@/types';
+import { CreateSessionParams, Session, UpdateSessionParams, } from '@/types';
 import { SessionStoreState } from './types';
 import { createDefaultSession } from './utils';
 import { createSession, deleteSession, getSessions, updateSession } from "@/lib/agent-api";
@@ -12,8 +17,7 @@ import { createSession, deleteSession, getSessions, updateSession } from "@/lib/
 export const createSessionAction = (
   set: (fn: (state: SessionStoreState) => Partial<SessionStoreState>) => void,
   get: () => SessionStoreState
-) => async (params?: CreateSessionParams): Promise<AgentId> => {
-  // 先在本地创建会话（立即响应UI）
+) => async (params?: CreateSessionParams): Promise<string> => {
   const newSession = createDefaultSession(params);
 
   set((state) => ({
@@ -21,66 +25,59 @@ export const createSessionAction = (
     error: null,
   }));
 
-  // 异步同步到后端
   try {
-    await createSession(newSession.agentId, {
+    await createSession(newSession.session_key, {
       title: params?.title,
       options: params?.options,
     });
-    console.debug('[SessionStore] Session created on server:', newSession.agentId);
+    console.debug('[SessionStore] Session synced:', newSession.session_key);
   } catch (error) {
-    console.error('[SessionStore] Failed to sync session to server:', error);
-    // 不回滚本地状态，允许离线使用
+    console.error('[SessionStore] Failed to sync session:', error);
   }
 
-  return newSession.agentId;
+  return newSession.session_key;
 };
 
 
 export const deleteSessionAction = (
   set: (fn: (state: SessionStoreState) => Partial<SessionStoreState>) => void,
   get: () => SessionStoreState
-) => async (id: AgentId): Promise<void> => {
+) => async (key: string): Promise<void> => {
   try {
-    // 1. Call API
-    await deleteSession(id);
+    await deleteSession(key);
 
-    // 2. Update Store
     set((state) => {
-      const newSessions = state.sessions.filter(s => s.agentId !== id);
-      const newCurrentId = state.currentAgentId === id
-        ? (newSessions[0]?.agentId || null)
-        : state.currentAgentId;
+      const newSessions = state.sessions.filter(s => s.session_key !== key);
+      const newCurrentKey = state.current_session_key === key
+        ? (newSessions[0]?.session_key || null)
+        : state.current_session_key;
 
       return {
         sessions: newSessions,
-        currentAgentId: newCurrentId,
+        current_session_key: newCurrentKey,
         error: null,
       };
     });
   } catch (error) {
     console.error('[SessionStore] Failed to delete session:', error);
-    set(() => ({error: 'Failed to delete session'}));
+    set(() => ({ error: 'Failed to delete session' }));
   }
 };
 
 export const updateSessionAction = (
   set: (fn: (state: SessionStoreState) => Partial<SessionStoreState>) => void
-) => async (id: AgentId, params: UpdateSessionParams): Promise<void> => {
+) => async (key: string, params: UpdateSessionParams): Promise<void> => {
   try {
-    // 调用后端API更新会话（包括title和options）
-    await updateSession(id, params);
-    console.debug('[SessionStore] Session updated on server:', id);
+    await updateSession(key, params);
 
-    // 更新本地Store
     set((state) => ({
       sessions: state.sessions.map(session =>
-        session.agentId === id
+        session.session_key === key
           ? {
             ...session,
-            ...(params.title && {title: params.title}),
-            ...(params.options && {options: {...session.options, ...params.options}}),
-            lastActivityAt: Date.now(),
+            ...(params.title && { title: params.title }),
+            ...(params.options && { options: { ...session.options, ...params.options } }),
+            last_activity_at: Date.now(),
           }
           : session
       ),
@@ -88,21 +85,21 @@ export const updateSessionAction = (
     }));
   } catch (error) {
     console.error('[SessionStore] Failed to update session:', error);
-    set(() => ({error: 'Failed to sync update with server'}));
+    set(() => ({ error: 'Failed to sync update with server' }));
   }
 };
 
 export const setCurrentSessionAction = (
   set: any
-) => (id: AgentId | null): void => {
-  set({currentAgentId: id, error: null});
+) => (key: string | null): void => {
+  set({ current_session_key: key, error: null });
 };
 
 
 // ==================== 查询操作 ====================
 
-export const getSessionAction = (get: () => SessionStoreState) => (id: AgentId): Session | undefined => {
-  return get().sessions.find(s => s.agentId === id);
+export const getSessionAction = (get: () => SessionStoreState) => (key: string): Session | undefined => {
+  return get().sessions.find(s => s.session_key === key);
 };
 
 
@@ -113,39 +110,19 @@ export const loadSessionsFromServerAction = (
   get: () => SessionStoreState
 ) => async (): Promise<void> => {
   try {
-    console.debug('[loadSessionsFromServer] 开始从服务器加载sessions...');
-    console.debug('[loadSessionsFromServer] 设置前当前状态:', {
-      sessionsCount: get().sessions.length,
-      currentAgentId: get().currentAgentId
-    });
-
-    set({loading: true, error: null});
+    set({ loading: true, error: null });
 
     const sessions = await getSessions();
-    // console.debug('[loadSessionsFromServer] 收到sessions数据:', sessions);
 
     if (sessions && Array.isArray(sessions)) {
-      // 按最后活动时间排序（最新的在前）
-      const sortedSessions = [...sessions].sort((a, b) => b.lastActivityAt - a.lastActivityAt);
-
-      console.debug(`[loadSessionsFromServer] 成功加载 ${sortedSessions.length} 个sessions`);
-      console.debug('[loadSessionsFromServer] 第一个session的agentId:', sortedSessions[0]?.agentId);
-
-      set({sessions: sortedSessions, loading: false, error: null});
-
-      // 验证设置后的状态
-      setTimeout(() => {
-        console.debug('[loadSessionsFromServer] 设置后状态:', {
-          sessionsCount: get().sessions.length,
-          currentAgentId: get().currentAgentId
-        });
-      }, 0);
+      const sortedSessions = [...sessions].sort((a, b) => b.last_activity_at - a.last_activity_at);
+      console.debug(`[SessionStore] Loaded ${sortedSessions.length} sessions`);
+      set({ sessions: sortedSessions, loading: false, error: null });
     } else {
-      console.error('[loadSessionsFromServer] 无效的响应格式:', sessions);
-      set({loading: false, error: 'Invalid response format'});
+      set({ loading: false, error: 'Invalid response format' });
     }
   } catch (err) {
-    console.error('[loadSessionsFromServer] 加载sessions失败:', err);
+    console.error('[SessionStore] Failed to load sessions:', err);
     set({
       loading: false,
       error: err instanceof Error ? err.message : 'Unknown error',
@@ -160,7 +137,7 @@ export const clearAllSessionsAction = (
 ) => (): void => {
   set({
     sessions: [],
-    currentAgentId: null,
+    current_session_key: null,
     error: null,
   });
 };

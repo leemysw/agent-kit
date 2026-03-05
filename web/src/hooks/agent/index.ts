@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useWebSocket } from '@/lib/websocket';
 import { useSessionStore } from '@/store/session';
-import { AgentId, AssistantMessage, Message, StreamEvent, ToolCall, UserMessage } from '@/types';
+import { AssistantMessage, Message, StreamEvent, ToolCall, UserMessage } from '@/types';
 import { UserQuestionAnswer } from '@/types/ask-user-question';
 import { UseAgentSessionOptions, UseAgentSessionReturn } from './types';
 import {
@@ -110,12 +110,12 @@ function findAssistantMessageIndex(messages: Message[], messageId?: string): num
 
 function createAssistantMessageFromStreamStart(
   event: StreamEvent,
-  messageAgentId: AgentId,
+  messageSessionKey: string,
   roundId: string
 ): AssistantMessage {
   return {
     message_id: event.message_id || crypto.randomUUID(),
-    agent_id: messageAgentId,
+    agent_id: messageSessionKey,
     round_id: roundId,
     role: 'assistant',
     content: [],
@@ -187,7 +187,7 @@ function applyStreamEventToAssistantMessage(
 function handleStreamEventMessage(
   messages: Message[],
   event: StreamEvent,
-  messageAgentId: AgentId,
+  messageSessionKey: string,
   roundId: string
 ): Message[] {
   if (event.type === 'message_start') {
@@ -199,7 +199,7 @@ function handleStreamEventMessage(
         return messages;
       }
     }
-    return [...messages, createAssistantMessageFromStreamStart(event, messageAgentId, roundId)];
+    return [...messages, createAssistantMessageFromStreamStart(event, messageSessionKey, roundId)];
   }
 
   const targetIndex = findAssistantMessageIndex(messages, event.message_id);
@@ -274,11 +274,11 @@ function upsertMessageById(messages: Message[], message: Message): Message[] | n
 function reduceIncomingMessage(
   messages: Message[],
   incoming: Message | StreamEvent,
-  messageAgentId: AgentId,
+  messageSessionKey: string,
   roundId: string
 ): Message[] {
   if (isStreamEventMessage(incoming)) {
-    return handleStreamEventMessage(messages, incoming, messageAgentId, roundId);
+    return handleStreamEventMessage(messages, incoming, messageSessionKey, roundId);
   }
 
   if (incoming.role === 'assistant') {
@@ -338,8 +338,8 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
   const [toolCalls, setToolCalls] = useState<ToolCall[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // agentId 初始为 null，只在创建或加载 session 时设置
-  const [agentId, setAgentId] = useState<AgentId | null>(null);
+  // sessionKey 初始为 null，只在创建或加载 session 时设置
+  const [sessionKey, setstring] = useState<string | null>(null);
   // 权限请求状态
   const [pendingPermission, setPendingPermission] = useState<{
     request_id: string;
@@ -381,19 +381,19 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
 
       if (backendMsg.event_type === 'conversation_event') {
         const payload = backendMsg.data as ConversationEventPayload;
-        const messageAgentId = backendMsg.agent_id || agentId;
-        if (!payload || !messageAgentId) {
+        const messageSessionKey = backendMsg.agent_id || sessionKey;
+        if (!payload || !messageSessionKey) {
           return;
         }
 
         if (payload.kind === 'message_delta' && payload.delta) {
-          setMessages(prev => reduceIncomingMessage(prev, payload.delta!, messageAgentId, payload.turn_id || ''));
+          setMessages(prev => reduceIncomingMessage(prev, payload.delta!, messageSessionKey, payload.turn_id || ''));
           setIsLoading(true);
           return;
         }
 
         if (payload.kind === 'message_upsert' && payload.message) {
-          setMessages(prev => reduceIncomingMessage(prev, payload.message!, messageAgentId, payload.turn_id || ''));
+          setMessages(prev => reduceIncomingMessage(prev, payload.message!, messageSessionKey, payload.turn_id || ''));
 
           const toolCallsFromMessage = extractToolCallsFromMessage(payload.message);
           if (toolCallsFromMessage.length > 0) {
@@ -409,7 +409,7 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
         }
       }
     }
-  }, [agentId]);
+  }, [sessionKey]);
 
   // WebSocket
   const { state: wsState, send: wsSend } = useWebSocket({
@@ -433,9 +433,9 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
   const sendMessage = useCallback(async (content: string) => {
     if (!content.trim()) return;
 
-    if (!agentId) {
+    if (!sessionKey) {
       const errorMsg = '请先选择或创建会话';
-      console.error('[sendMessage] No agentId available');
+      console.error('[sendMessage] No sessionKey available');
       setError(errorMsg);
       return;
     }
@@ -447,7 +447,7 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
       return;
     }
 
-    console.debug('[sendMessage] 发送消息, agentId:', agentId);
+    console.debug('[sendMessage] 发送消息, sessionKey:', sessionKey);
 
     try {
       // 创建用户消息
@@ -455,7 +455,7 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
       const userMessage: Message = {
         message_id: message_id,
         round_id: message_id,
-        agent_id: agentId,
+        agent_id: sessionKey,
         role: 'user',
         content,
         timestamp: Date.now(),
@@ -470,7 +470,7 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
       wsSend({
         type: 'chat',
         content,
-        agent_id: agentId,
+        agent_id: sessionKey,
         round_id: message_id,
       });
 
@@ -480,7 +480,7 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
       setError(err instanceof Error ? err.message : 'Failed to send message');
       setIsLoading(false);
     }
-  }, [wsState, agentId, wsSend]);
+  }, [wsState, sessionKey, wsSend]);
 
   /**
    * 停止生成
@@ -491,7 +491,7 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
       .find(message => message.role === 'user')?.round_id;
 
     console.debug('[useAgentSession] 停止生成被调用:', {
-      agentId,
+      sessionKey,
       roundId: latestUserRoundId,
       wsState,
       hasAbortController: !!abortControllerRef.current,
@@ -504,10 +504,10 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
     }
 
     // 发送到后端
-    if (agentId && wsSend) {
+    if (sessionKey && wsSend) {
       const interruptMsg: { type: 'interrupt'; agent_id: string; round_id?: string } = {
         type: 'interrupt',
-        agent_id: agentId,
+        agent_id: sessionKey,
       };
       if (latestUserRoundId) {
         interruptMsg.round_id = latestUserRoundId;
@@ -523,7 +523,7 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
       }
     } else {
       console.warn('[useAgentSession] 无法发送停止消息:', {
-        agentId: !!agentId,
+        sessionKey: !!sessionKey,
         wsSend: !!wsSend,
         wsState
       });
@@ -532,7 +532,7 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
     setIsLoading(false);
     setToolCalls([]);
 
-  }, [agentId, messages, wsSend, wsState]);
+  }, [sessionKey, messages, wsSend, wsState]);
   /**
    * 发送权限响应（也用于 AskUserQuestion）
    */
@@ -542,7 +542,7 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
     const response: Record<string, any> = {
       type: 'permission_response',
       request_id: pendingPermission.request_id,
-      agent_id: agentId,
+      agent_id: sessionKey,
       decision,
       message: decision === 'deny' ? 'User denied permission' : '',
     };
@@ -555,19 +555,19 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
     console.debug('[useAgentSession] Sending permission response:', response);
     wsSend(response as any);
     setPendingPermission(null);
-  }, [pendingPermission, agentId, wsSend]);
+  }, [pendingPermission, sessionKey, wsSend]);
 
   /**
    * 删除一轮对话
    */
   const deleteRound = useCallback(async (roundId: string) => {
-    if (!agentId) {
-      console.error('[deleteRound] No agentId available');
+    if (!sessionKey) {
+      console.error('[deleteRound] No sessionKey available');
       return;
     }
 
     try {
-      await deleteRoundApi(agentId, roundId);
+      await deleteRoundApi(sessionKey, roundId);
       // 从本地消息中移除
       setMessages(prev => prev.filter(m => m.round_id !== roundId));
       console.debug('[deleteRound] 删除成功:', roundId);
@@ -575,7 +575,7 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
       console.error('[deleteRound] 删除失败:', err);
       setError(err instanceof Error ? err.message : 'Failed to delete round');
     }
-  }, [agentId]);
+  }, [sessionKey]);
 
   /**
    * 重新生成最后一轮回答
@@ -583,8 +583,8 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
    */
   const regenerate = useCallback(async (roundId: string) => {
     // 使用 ref 获取最新的 messages
-    if (!agentId) {
-      console.error('[regenerate] No agentId or messages');
+    if (!sessionKey) {
+      console.error('[regenerate] No sessionKey or messages');
       return;
     }
 
@@ -611,7 +611,7 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
       setError(err instanceof Error ? err.message : 'Failed to regenerate');
       setIsLoading(false);
     }
-  }, [agentId, messages, wsSend]);
+  }, [sessionKey, messages, wsSend]);
 
   // 创建操作函数
   const loadHistoryMessages = useCallback(
@@ -620,17 +620,17 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
   );
 
   const startSession = useCallback(
-    createStartSession(setAgentId, setMessages, setToolCalls, setError, setIsLoading),
+    createStartSession(setstring, setMessages, setToolCalls, setError, setIsLoading),
     []
   );
 
   const loadSession = useCallback(
-    createLoadSession(setAgentId, setMessages, setError),
+    createLoadSession(setstring, setMessages, setError),
     []
   );
 
   const clearSession = useCallback(
-    createClearSession(setMessages, setToolCalls, setError, setIsLoading, setAgentId, abortControllerRef),
+    createClearSession(setMessages, setToolCalls, setError, setIsLoading, setstring, abortControllerRef),
     []
   );
 
@@ -652,7 +652,7 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
     error,
     messages,
     toolCalls,
-    agentId,
+    sessionKey,
     isLoading,
     pendingPermission,
     sendMessage,

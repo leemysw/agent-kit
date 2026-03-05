@@ -22,11 +22,11 @@
 """
 
 import asyncio
-import os
 from typing import Any, Dict
 
 from claude_agent_sdk import ClaudeSDKClient, PermissionResult, ToolPermissionContext
 
+from agent.service.agent_manager import agent_manager
 from agent.service.channel.channel import MessageSender, PermissionStrategy
 from agent.service.handler.base_handler import BaseHandler
 from agent.service.process.chat_message_processor import ChatMessageProcessor
@@ -81,12 +81,12 @@ class ChatHandler(BaseHandler):
     async def handle_chat_message(self, message: Dict[str, Any]) -> None:
         """处理聊天消息 — session_key 路由"""
         session_key = message.get("session_key") or message.get("agent_id", "")
-        agent_id = message.get("agent_id", "")  # 保留前端原始 agent_id
+        agent_id = message.get("agent_id", "")  # Agent ID
         content = message.get("content")
         round_id = message.get("round_id")
 
         try:
-            client = await self._get_or_create_client(session_key)
+            client = await self._get_or_create_client(session_key, agent_id)
         except Exception as e:
             logger.error(f"❌ 获取 client 失败: {e}")
             await self.send(self.create_error_response(
@@ -116,32 +116,39 @@ class ChatHandler(BaseHandler):
 
             logger.info(f"✅ 消息处理完成: key={session_key}, 共 {processor.message_count} 条响应")
 
-    async def _get_or_create_client(self, session_key: str) -> ClaudeSDKClient:
-        """懒加载：按需获取或创建 SDK client"""
+    async def _get_or_create_client(self, session_key: str, agent_id: str = "") -> ClaudeSDKClient:
+        """懒加载：按需获取或创建 SDK client
+
+        配置来源优先级: Agent Workspace (cwd + prompt) → Agent Options (model + tools)
+        每次创建 client 重新读取 workspace 文件，修改后立即生效。
+        """
+        import os
+
         # 1. 检查内存
         client = await session_manager.get_session(session_key)
         if client:
             logger.debug(f"♻️ 复用现有 session: {session_key}")
             return client
 
-        # 2. 查询数据库
+        # 2. 查询数据库获取 resume session_id + 真正的 agent_id
         existing_session = await session_store.get_session_info(session_key)
+        session_id = existing_session.session_id if existing_session else None
 
-        session_options = None
-        session_id = None
-        if existing_session:
-            session_options = existing_session.options
-            session_id = existing_session.session_id
+        # 从 session 记录获取真正的 Agent 实体 ID（不是 WebSocket 传来的路由键）
+        real_agent_id = existing_session.agent_id if existing_session else agent_id
 
-        # 3. 确保 cwd 存在
-        if not session_options:
-            session_options = {}
-        if "cwd" not in session_options or not session_options["cwd"]:
-            session_options["cwd"] = os.getcwd()
-            logger.info(f"📁 使用默认 cwd: {session_options['cwd']}")
+        # 3. 从 AgentManager 构建 SDK options（cwd + prompt + model + tools）
+        try:
+            sdk_options = await agent_manager.build_sdk_options(real_agent_id)
+            logger.info(f"📋 SDK options 从 Agent 构建: agent={real_agent_id}")
+        except (ValueError, Exception):
+            # Agent 不存在时使用默认配置，必须提供 cwd
+            logger.warning(f"⚠️ Agent 不存在: {real_agent_id}，使用默认配置")
+            sdk_options = {"cwd": os.getcwd()}
 
-        # 4. 注入 Workspace system prompt
-        self._inject_workspace_prompt(session_options)
+        # 4. 恢复已有会话
+        if session_id:
+            sdk_options["resume"] = session_id
 
         # 5. 创建权限回调
         async def can_use_tool(name: str, data: dict[str, Any], context: ToolPermissionContext) -> PermissionResult:
@@ -152,29 +159,11 @@ class ChatHandler(BaseHandler):
             session_key=session_key,
             can_use_tool=can_use_tool,
             session_id=session_id,
-            session_options=session_options,
+            session_options=sdk_options,
         )
 
         # 7. 连接 SDK
         await client.connect()
 
-        logger.info(f"✅ Client 就绪: key={session_key}, session_id={session_id}")
+        logger.info(f"✅ Client 就绪: key={session_key}, agent={real_agent_id}, session_id={session_id}")
         return client
-
-    @staticmethod
-    def _inject_workspace_prompt(session_options: Dict[str, Any]) -> None:
-        """将 Workspace 内容注入到 session_options 的 system prompt"""
-        try:
-            from agent.service.agent.workspace import get_workspace
-            workspace = get_workspace()
-            prompt = workspace.build_system_prompt()
-            if prompt:
-                # 追加到现有 system prompt（如果有的话）
-                existing = session_options.get("system_prompt", "")
-                if existing:
-                    session_options["system_prompt"] = f"{existing}\n\n---\n\n{prompt}"
-                else:
-                    session_options["system_prompt"] = prompt
-                logger.info("📋 Workspace system prompt 已注入")
-        except Exception as e:
-            logger.warning(f"⚠️ Workspace prompt 注入失败: {e}")

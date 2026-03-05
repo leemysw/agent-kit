@@ -27,6 +27,21 @@ from sqlalchemy.orm import Mapped, mapped_column
 from agent.shared.database.async_sqlalchemy import Base
 
 
+class Agent(Base):
+    """Agent 表 — 一个 Agent = 一个工作区"""
+    __tablename__ = "agents"
+
+    agent_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    workspace_path: Mapped[str] = mapped_column(String(512), nullable=False, default="")
+    options: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    status: Mapped[str] = mapped_column(String(16), default="active")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    def __repr__(self):
+        return f"<Agent(id='{self.agent_id}', name='{self.name}')>"
+
+
 class Session(Base):
     """会话表 — 以 session_key 为主键，支持多通道路由"""
     __tablename__ = "sessions"

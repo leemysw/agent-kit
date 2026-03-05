@@ -1,13 +1,18 @@
 /**
  * Session Store 辅助函数
+ *
+ * [INPUT]: 依赖 @/types 的 CreateSessionParams, Session
+ * [OUTPUT]: 对外提供 generateSessionKey, createDefaultSession
+ * [POS]: store 模块的工具函数
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import { AgentId, CreateSessionParams, Session } from '@/types';
+import { CreateSessionParams, Session } from '@/types';
 
 // ==================== ID生成 ====================
 
-/** 生成新的Chat ID */
-export const generateAgentId = (): AgentId => {
+/** 生成新的 session 路由键 */
+export const generateSessionKey = (): string => {
   return crypto.randomUUID();
 };
 
@@ -17,11 +22,12 @@ export const generateAgentId = (): AgentId => {
 export const createDefaultSession = (params?: CreateSessionParams): Session => {
   const now = Date.now();
   return {
-    agentId: generateAgentId(),
-    sessionId: null,
+    session_key: generateSessionKey(),
+    agent_id: params?.agent_id,
+    session_id: null,
     title: params?.title || 'New Chat',
     options: params?.options || {},
-    createdAt: now,
-    lastActivityAt: now,
+    created_at: now,
+    last_activity_at: now,
   };
 };
