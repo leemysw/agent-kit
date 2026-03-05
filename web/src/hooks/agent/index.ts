@@ -470,6 +470,7 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
       wsSend({
         type: 'chat',
         content,
+        session_key: sessionKey,
         agent_id: sessionKey,
         round_id: message_id,
       });
@@ -505,8 +506,9 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
 
     // 发送到后端
     if (sessionKey && wsSend) {
-      const interruptMsg: { type: 'interrupt'; agent_id: string; round_id?: string } = {
+      const interruptMsg: { type: 'interrupt'; session_key: string; agent_id: string; round_id?: string } = {
         type: 'interrupt',
+        session_key: sessionKey,
         agent_id: sessionKey,
       };
       if (latestUserRoundId) {
@@ -542,6 +544,7 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
     const response: Record<string, any> = {
       type: 'permission_response',
       request_id: pendingPermission.request_id,
+      session_key: sessionKey,
       agent_id: sessionKey,
       decision,
       message: decision === 'deny' ? 'User denied permission' : '',

@@ -20,7 +20,6 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from agent.service.schema.model_message import AEvent, AMessage
-from agent.service.session.session_router import parse_session_key
 
 
 class ProtocolAdapter:
@@ -267,13 +266,8 @@ class ProtocolAdapter:
         return current
 
     def _resolve_agent_id(self, session_key: str, fallback: str) -> str:
-        """从 session_key 解析前端 agent_id。"""
-        try:
-            parsed = parse_session_key(session_key)
-            ref = parsed.get("ref")
-            return ref or fallback
-        except Exception:
-            return fallback
+        """返回前端使用的会话路由键。"""
+        return session_key or fallback
 
     def _normalize_usage(self, usage: Any) -> Optional[Dict[str, Any]]:
         """统一 usage 字段命名。"""

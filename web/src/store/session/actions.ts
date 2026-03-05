@@ -20,22 +20,27 @@ export const createSessionAction = (
 ) => async (params?: CreateSessionParams): Promise<string> => {
   const newSession = createDefaultSession(params);
 
-  set((state) => ({
-    sessions: [newSession, ...state.sessions],
-    error: null,
-  }));
-
   try {
-    await createSession(newSession.session_key, {
+    const created = await createSession(newSession.session_key, {
       title: params?.title,
       options: params?.options,
+      agent_id: params?.agent_id,
     });
-    console.debug('[SessionStore] Session synced:', newSession.session_key);
+
+    set((state) => ({
+      sessions: [created, ...state.sessions.filter(s => s.session_key !== newSession.session_key)],
+      error: null,
+    }));
+    console.debug('[SessionStore] Session synced:', created.session_key);
+    return created.session_key;
   } catch (error) {
     console.error('[SessionStore] Failed to sync session:', error);
+    set((state) => ({
+      sessions: [newSession, ...state.sessions],
+      error: null,
+    }));
+    return newSession.session_key;
   }
-
-  return newSession.session_key;
 };
 
 

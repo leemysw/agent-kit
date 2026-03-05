@@ -67,6 +67,7 @@ class MessageHistoryStore:
     async def update_session(
             self,
             session_key: str,
+            agent_id: str = "main",
             session_id: Optional[str] = None,
             title: Optional[str] = None,
             options: Optional[Dict] = None,
@@ -76,6 +77,7 @@ class MessageHistoryStore:
         if not existing:
             return await session_repository.create_session(
                 session_key=session_key,
+                agent_id=agent_id,
                 session_id=session_id,
                 title=title or "New Chat",
                 options=options,

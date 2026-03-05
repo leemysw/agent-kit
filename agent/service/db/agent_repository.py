@@ -18,9 +18,8 @@ Agent 数据仓库
 
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
-from uuid import uuid4
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from agent.service.db.models import Agent
 from agent.service.schema.model_agent import AAgent, AgentOptions
@@ -112,6 +111,27 @@ class AgentRepository:
             logger.error(f"❌ 获取 Agent 列表失败: {e}")
             return []
 
+    async def exists_active_agent_name(
+        self,
+        name: str,
+        exclude_agent_id: Optional[str] = None,
+    ) -> bool:
+        """检查活跃 Agent 名称是否已存在（大小写不敏感）。"""
+        try:
+            async with db.session() as session:
+                stmt = (
+                    select(Agent.agent_id)
+                    .where(Agent.status == "active")
+                    .where(func.lower(Agent.name) == name.lower())
+                )
+                if exclude_agent_id:
+                    stmt = stmt.where(Agent.agent_id != exclude_agent_id)
+                result = await session.execute(stmt.limit(1))
+                return result.scalar_one_or_none() is not None
+        except Exception as e:
+            logger.error(f"❌ 检查 Agent 名称失败: {e}")
+            return False
+
     # =====================================================
     # 更新
     # =====================================================
@@ -145,6 +165,25 @@ class AgentRepository:
                 return True
         except Exception as e:
             logger.error(f"❌ 更新 Agent 失败: {e}")
+            return False
+
+    async def update_agent_workspace_path(self, agent_id: str, workspace_path: str) -> bool:
+        """更新 Agent 的工作空间路径。"""
+        try:
+            async with db.session() as session:
+                result = await session.execute(
+                    select(Agent).where(Agent.agent_id == agent_id)
+                )
+                agent = result.scalar_one_or_none()
+                if not agent:
+                    return False
+
+                agent.workspace_path = workspace_path
+                await session.commit()
+                logger.info(f"✅ Agent workspace_path 已更新: {agent_id} -> {workspace_path}")
+                return True
+        except Exception as e:
+            logger.error(f"❌ 更新 Agent workspace_path 失败: {e}")
             return False
 
     # =====================================================

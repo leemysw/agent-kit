@@ -36,9 +36,16 @@ protocol_adapter = ProtocolAdapter()
 # 桥接层 — 前端 session_key ↔ 内部 session_key
 # =====================================================
 
-def _to_session_key(session_key: str) -> str:
-    """前端 session_key → 内部 session_key"""
-    return build_session_key(channel="ws", chat_type="dm", ref=session_key)
+def _to_session_key(session_key: str, agent_id: Optional[str] = None) -> str:
+    """前端 session_key → 内部 session_key（幂等）。"""
+    if session_key.startswith("agent:"):
+        return session_key
+    return build_session_key(
+        channel="ws",
+        chat_type="dm",
+        ref=session_key,
+        agent_id=agent_id or "main",
+    )
 
 
 # =====================================================
@@ -48,6 +55,7 @@ def _to_session_key(session_key: str) -> str:
 class CreateSessionRequest(BaseModel):
     """创建会话请求"""
     session_key: str
+    agent_id: Optional[str] = "main"
     title: Optional[str] = "New Chat"
     options: Optional[Dict[str, Any]] = None
 
@@ -73,7 +81,7 @@ async def get_sessions():
 @router.post("/sessions")
 async def create_session(request: CreateSessionRequest):
     """创建新会话"""
-    session_key = _to_session_key(request.session_key)
+    session_key = _to_session_key(request.session_key, request.agent_id)
 
     existing = await session_store.get_session_info(session_key)
     if existing:
@@ -81,6 +89,7 @@ async def create_session(request: CreateSessionRequest):
 
     success = await session_store.update_session(
         session_key=session_key,
+        agent_id=request.agent_id or "main",
         title=request.title,
         options=request.options,
     )

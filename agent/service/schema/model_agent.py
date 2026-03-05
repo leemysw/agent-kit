@@ -49,7 +49,7 @@ class AAgent(BaseModel):
     """Agent 模型 — 一个 Agent = 一个工作区"""
     agent_id: str = Field(..., description="Agent 唯一标识")
     name: str = Field(..., description="显示名称")
-    workspace_path: str = Field(default="", description="工作目录路径（自动计算）")
+    workspace_path: str = Field(default="", description="工作区路径（系统托管: ~/.agent-kit/workspace/<agent_name_slug>）")
     options: AgentOptions = Field(default_factory=AgentOptions, description="Agent 配置")
     created_at: datetime = Field(default_factory=datetime.now, description="创建时间")
     status: str = Field(default="active", description="状态: active/archived")
@@ -64,7 +64,7 @@ class AAgent(BaseModel):
 class CreateAgentRequest(BaseModel):
     """创建 Agent 请求"""
     name: str = Field(..., description="Agent 名称")
-    workspace_path: Optional[str] = Field(default=None, description="工作目录路径")
+    workspace_path: Optional[str] = Field(default=None, description="兼容字段，当前由后端自动管理")
     options: Optional[AgentOptions] = Field(default=None, description="初始配置")
 
 
@@ -72,3 +72,13 @@ class UpdateAgentRequest(BaseModel):
     """更新 Agent 请求"""
     name: Optional[str] = Field(default=None, description="名称")
     options: Optional[AgentOptions] = Field(default=None, description="配置")
+
+
+class ValidateAgentNameResponse(BaseModel):
+    """Agent 名称校验结果"""
+    name: str = Field(..., description="原始输入名称")
+    normalized_name: str = Field(..., description="标准化后的名称")
+    is_valid: bool = Field(..., description="是否符合命名规则")
+    is_available: bool = Field(..., description="名称是否可用（未重复）")
+    workspace_path: Optional[str] = Field(default=None, description="预期工作区路径")
+    reason: Optional[str] = Field(default=None, description="不可用原因")

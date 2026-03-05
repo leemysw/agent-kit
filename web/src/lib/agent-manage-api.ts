@@ -7,7 +7,13 @@
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import { Agent, ApiAgent, CreateAgentParams, UpdateAgentParams } from '@/types/agent';
+import {
+    Agent,
+    AgentNameValidationResult,
+    ApiAgent,
+    CreateAgentParams,
+    UpdateAgentParams
+} from '@/types/agent';
 
 const AGENT_API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010/agent/v1';
 
@@ -54,7 +60,6 @@ export const createAgentApi = async (params: CreateAgentParams): Promise<Agent> 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             name: params.name,
-            workspace_path: params.workspace_path || null,
             options: params.options || null,
         }),
     });
@@ -105,5 +110,26 @@ export const deleteAgentApi = async (agent_id: string): Promise<{ success: boole
         throw new Error(`删除 Agent 失败: ${response.statusText}`);
     }
     const result: ApiResponse<{ success: boolean }> = await response.json();
+    return result.data;
+};
+
+/** 校验 Agent 名称 */
+export const validateAgentNameApi = async (
+    name: string,
+    exclude_agent_id?: string
+): Promise<AgentNameValidationResult> => {
+    const query = new URLSearchParams({ name });
+    if (exclude_agent_id) {
+        query.set('exclude_agent_id', exclude_agent_id);
+    }
+
+    const response = await fetch(`${AGENT_API_BASE_URL}/agents/validate/name?${query.toString()}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+    });
+    if (!response.ok) {
+        throw new Error(`校验 Agent 名称失败: ${response.statusText}`);
+    }
+    const result: ApiResponse<AgentNameValidationResult> = await response.json();
     return result.data;
 };

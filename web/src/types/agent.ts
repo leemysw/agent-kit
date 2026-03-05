@@ -49,7 +49,6 @@ export interface ApiAgent {
 /** 创建 Agent 参数 */
 export interface CreateAgentParams {
     name: string;
-    workspace_path?: string;
     options?: Partial<AgentOptions>;
 }
 
@@ -57,4 +56,14 @@ export interface CreateAgentParams {
 export interface UpdateAgentParams {
     name?: string;
     options?: Partial<AgentOptions>;
+}
+
+/** Agent 名称校验结果 */
+export interface AgentNameValidationResult {
+    name: string;
+    normalized_name: string;
+    is_valid: boolean;
+    is_available: boolean;
+    workspace_path?: string | null;
+    reason?: string | null;
 }

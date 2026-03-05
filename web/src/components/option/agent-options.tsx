@@ -15,10 +15,11 @@
 
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { MessageSquare, Settings, Sparkles, Wrench, X, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SessionOptions } from "@/types/session";
+import { AgentNameValidationResult } from "@/types/agent";
 
 // ==================== 类型定义 ====================
 
@@ -31,10 +32,22 @@ interface AgentOptionsProps {
   onClose: () => void;
   /** 保存配置回调 */
   onSave: (title: string, options: SessionOptions) => void;
+  /** 名称校验回调 */
+  onValidateName?: (name: string) => Promise<AgentNameValidationResult>;
   /** 初始标题（编辑模式） */
   initialTitle?: string;
   /** 初始配置（编辑模式） */
   initialOptions?: Partial<SessionOptions>;
+}
+
+interface AgentDialogInitialOptions extends Partial<SessionOptions> {
+  permission_mode?: string;
+  allowed_tools?: string[];
+  disallowed_tools?: string[];
+  max_turns?: number;
+  max_thinking_tokens?: number;
+  skills_enabled?: boolean;
+  setting_sources?: ('user' | 'project')[];
 }
 
 type TabKey = 'basic' | 'prompt' | 'tools' | 'skills' | 'advanced';
@@ -86,26 +99,59 @@ export function AgentOptions(
     isOpen,
     onClose,
     onSave,
+    onValidateName,
     initialTitle = '',
     initialOptions = {},
   }: AgentOptionsProps) {
+  const sourceOptions = initialOptions as AgentDialogInitialOptions;
+
   // 状态管理
   const [activeTab, setActiveTab] = useState<TabKey>('basic');
   const [title, setTitle] = useState(initialTitle || 'Agent');
-  const [model, setModel] = useState(initialOptions.model || 'deepseek-chat');
-  const [permissionMode, setPermissionMode] = useState(initialOptions.permissionMode || 'default');
-  const [allowedTools, setAllowedTools] = useState<string[]>(initialOptions.allowedTools || []);
-  const [disallowedTools, setDisallowedTools] = useState<string[]>(initialOptions.disallowedTools || []);
-  const [systemPrompt, setSystemPrompt] = useState(initialOptions.systemPrompt || '');
-  const [maxTurns, setMaxTurns] = useState(initialOptions.maxTurns?.toString() || '');
-  const [includePartialMessages, setIncludePartialMessages] = useState(initialOptions.includePartialMessages ?? true);
-  // 工作目录状态
-  const [workingDirectory, setWorkingDirectory] = useState(initialOptions.cwd || '～/.agent');
-  // 技能配置状态
-  const [skillsEnabled, setSkillsEnabled] = useState(initialOptions.skillsEnabled ?? true);
-  const [settingSources, setSettingSources] = useState<('user' | 'project')[]>(
-    initialOptions.settingSources || ['user', 'project']
+  const [model, setModel] = useState(sourceOptions.model || 'deepseek-chat');
+  const [permissionMode, setPermissionMode] = useState(
+    sourceOptions.permissionMode || sourceOptions.permission_mode || 'default'
   );
+  const [allowedTools, setAllowedTools] = useState<string[]>(
+    sourceOptions.allowedTools || sourceOptions.allowed_tools || []
+  );
+  const [disallowedTools, setDisallowedTools] = useState<string[]>(
+    sourceOptions.disallowedTools || sourceOptions.disallowed_tools || []
+  );
+  const [systemPrompt, setSystemPrompt] = useState(sourceOptions.systemPrompt || '');
+  const [maxTurns, setMaxTurns] = useState(
+    (sourceOptions.maxTurns ?? sourceOptions.max_turns)?.toString() || ''
+  );
+  const [includePartialMessages, setIncludePartialMessages] = useState(sourceOptions.includePartialMessages ?? true);
+  // 技能配置状态
+  const [skillsEnabled, setSkillsEnabled] = useState(
+    sourceOptions.skillsEnabled ?? sourceOptions.skills_enabled ?? true
+  );
+  const [settingSources, setSettingSources] = useState<('user' | 'project')[]>(
+    sourceOptions.settingSources || sourceOptions.setting_sources || ['user', 'project']
+  );
+  const [nameValidation, setNameValidation] = useState<AgentNameValidationResult | null>(null);
+  const [isValidatingName, setIsValidatingName] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const nextOptions = initialOptions as AgentDialogInitialOptions;
+    setActiveTab('basic');
+    setTitle(initialTitle || 'Agent');
+    setModel(nextOptions.model || 'deepseek-chat');
+    setPermissionMode(nextOptions.permissionMode || nextOptions.permission_mode || 'default');
+    setAllowedTools(nextOptions.allowedTools || nextOptions.allowed_tools || []);
+    setDisallowedTools(nextOptions.disallowedTools || nextOptions.disallowed_tools || []);
+    setSystemPrompt(nextOptions.systemPrompt || '');
+    setMaxTurns((nextOptions.maxTurns ?? nextOptions.max_turns)?.toString() || '');
+    setIncludePartialMessages(nextOptions.includePartialMessages ?? true);
+    setSkillsEnabled(nextOptions.skillsEnabled ?? nextOptions.skills_enabled ?? true);
+    setSettingSources(
+      nextOptions.settingSources || nextOptions.setting_sources || ['user', 'project']
+    );
+    setNameValidation(null);
+    setIsValidatingName(false);
+  }, [isOpen, initialTitle, initialOptions]);
 
   // 切换技能来源
   const toggleSettingSource = (source: 'user' | 'project') => {
@@ -124,6 +170,53 @@ export function AgentOptions(
     {key: 'skills' as TabKey, label: 'SKILLS 配置', icon: Sparkles},
     {key: 'advanced' as TabKey, label: '高级设置', icon: Zap},
   ];
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    if (!onValidateName) {
+      setNameValidation(null);
+      return;
+    }
+
+    const trimmed = title.trim();
+    if (!trimmed) {
+      setNameValidation(null);
+      setIsValidatingName(false);
+      return;
+    }
+
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      try {
+        setIsValidatingName(true);
+        const result = await onValidateName(trimmed);
+        if (!cancelled) {
+          setNameValidation(result);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setNameValidation({
+            name: trimmed,
+            normalized_name: trimmed,
+            is_valid: false,
+            is_available: false,
+            reason: error instanceof Error ? error.message : '名称校验失败',
+            workspace_path: null,
+          });
+        }
+      } finally {
+        if (!cancelled) {
+          setIsValidatingName(false);
+        }
+      }
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [title, isOpen, onValidateName]);
 
   // 处理工具选择
   const toggleTool = (toolName: string, type: 'allowed' | 'disallowed') => {
@@ -144,6 +237,11 @@ export function AgentOptions(
 
   // 处理保存
   const handleSave = () => {
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) return;
+    if (isValidatingName) return;
+    if (nameValidation && (!nameValidation.is_valid || !nameValidation.is_available)) return;
+
     // 如果启用技能，自动添加 "Skill" 到 allowedTools
     const finalAllowedTools = [...allowedTools];
     if (skillsEnabled && !finalAllowedTools.includes('Skill')) {
@@ -157,15 +255,17 @@ export function AgentOptions(
       disallowedTools,
       systemPrompt: systemPrompt || undefined,
       maxTurns: maxTurns ? parseInt(maxTurns) : undefined,
-      cwd: workingDirectory || undefined,
       includePartialMessages,
       // Skills 配置
       skillsEnabled,
       settingSources: skillsEnabled ? settingSources : undefined,
     };
-    onSave(title, options);
+    onSave(trimmedTitle, options);
     onClose();
   };
+
+  const isNameInvalid = !!(nameValidation && (!nameValidation.is_valid || !nameValidation.is_available));
+  const canSave = !!title.trim() && !isValidatingName && !isNameInvalid;
 
   if (!isOpen) return null;
 
@@ -182,10 +282,10 @@ export function AgentOptions(
             </div>
             <div>
               <h2 className="text-lg font-semibold text-foreground tracking-tight">
-                {mode === 'create' ? '创建新会话' : '会话设置'}
+                {mode === 'create' ? '创建 Agent' : 'Agent 设置'}
               </h2>
               <p className="text-xs text-muted-foreground">
-                {mode === 'create' ? '配置您的 AI 助手环境与能力' : `正在编辑: ${title}`}
+                {mode === 'create' ? '配置 Agent 能力与行为策略' : `正在编辑: ${title}`}
               </p>
             </div>
           </div>
@@ -236,15 +336,28 @@ export function AgentOptions(
                   <div className="space-y-2">
                     <label
                       className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                      会话名称 <span className="text-red-500">*</span>
+                      Agent 名称 <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
                       className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all"
-                      placeholder="给这个任务起个名字..."
+                      placeholder="例如：Coding Assistant"
                     />
+                    <div className="min-h-5 text-xs">
+                      {isValidatingName && (
+                        <span className="text-muted-foreground">正在校验名称...</span>
+                      )}
+                      {!isValidatingName && nameValidation?.reason && (
+                        <span className="text-red-500">{nameValidation.reason}</span>
+                      )}
+                      {!isValidatingName && nameValidation?.is_valid && nameValidation?.is_available && (
+                        <span className="text-emerald-600">
+                          名称可用，工作区将自动创建到：{nameValidation.workspace_path}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div className="space-y-2">
@@ -273,24 +386,12 @@ export function AgentOptions(
                 </div>
 
                 <div className="space-y-4">
-                  <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">环境配置</h3>
-
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium leading-none">工作目录</label>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={workingDirectory}
-                        onChange={(e) => setWorkingDirectory(e.target.value)}
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 font-mono transition-all"
-                        placeholder="/path/to/project"
-                      />
-                    </div>
-                    <p className="text-[11px] text-muted-foreground">
-                      Agent 将在此目录下执行文件操作和命令。
-                    </p>
+                  <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">工作区策略</h3>
+                  <div className="rounded-lg border border-border bg-muted/20 p-4 text-sm text-muted-foreground space-y-1">
+                    <p>工作目录由系统自动托管，不再支持手动输入。</p>
+                    <p>目录规则：`~/.agent-kit/workspace/&lt;agent_name_slug&gt;`。</p>
+                    <p>首次创建时会自动初始化 `AGENTS.md`、`MEMORY.md` 等模板。</p>
                   </div>
-
                   <div className="space-y-2">
                     <label className="text-sm font-medium leading-none">描述</label>
                     <textarea
@@ -617,7 +718,13 @@ export function AgentOptions(
           </button>
           <button
             onClick={handleSave}
-            className="px-4 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm font-medium shadow-sm"
+            disabled={!canSave}
+            className={cn(
+              "px-4 py-2 rounded-md text-sm font-medium shadow-sm transition-colors",
+              canSave
+                ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                : "bg-muted text-muted-foreground cursor-not-allowed"
+            )}
           >
             {mode === 'create' ? '创建 Agent' : '保存更改'}
           </button>

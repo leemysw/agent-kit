@@ -9,7 +9,7 @@
 
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Sidebar } from "@/components/sidebar";
 import { ChatInterface } from "@/components/chat-interface";
 import { AgentOptions } from "@/components/option/agent-options";
@@ -17,6 +17,7 @@ import { useSessionStore } from "@/store/session";
 import { useAgentStore } from "@/store/agent";
 import { useInitializeSessions } from "@/hooks/use-initialize-sessions";
 import { SessionOptions } from "@/types/session";
+import { validateAgentNameApi } from "@/lib/agent-manage-api";
 import { initialOptions } from "@/config/options";
 
 export default function Home() {
@@ -25,6 +26,7 @@ export default function Home() {
     agents,
     current_agent_id,
     create_agent,
+    update_agent,
     delete_agent,
     set_current_agent,
     load_agents_from_server,
@@ -55,13 +57,35 @@ export default function Home() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<"create" | "edit">("create");
-  const [editingSessionKey, setEditingSessionKey] = useState<string | null>(null);
+  const [editingAgentId, setEditingAgentId] = useState<string | null>(null);
+
+  const editingAgent = useMemo(
+    () => agents.find(a => a.agent_id === editingAgentId),
+    [agents, editingAgentId]
+  );
+  const dialogInitialTitle = useMemo(
+    () => (dialogMode === "edit" ? editingAgent?.name : undefined),
+    [dialogMode, editingAgent]
+  );
+  const dialogInitialOptions = useMemo(() => {
+    if (dialogMode !== "edit") return initialOptions;
+    return {
+      model: editingAgent?.options?.model,
+      permissionMode: editingAgent?.options?.permission_mode,
+      allowedTools: editingAgent?.options?.allowed_tools,
+      disallowedTools: editingAgent?.options?.disallowed_tools,
+      maxTurns: editingAgent?.options?.max_turns,
+      maxThinkingTokens: editingAgent?.options?.max_thinking_tokens,
+      skillsEnabled: editingAgent?.options?.skills_enabled,
+      settingSources: editingAgent?.options?.setting_sources,
+    };
+  }, [dialogMode, editingAgent]);
 
   // ==================== Agent 操作 ====================
 
   const handleNewAgent = useCallback(() => {
     setDialogMode("create");
-    setEditingSessionKey(null);
+    setEditingAgentId(null);
     setIsDialogOpen(true);
   }, []);
 
@@ -99,20 +123,27 @@ export default function Home() {
     if (dialogMode === "create") {
       const agent_id = await create_agent({
         name: title,
-        workspace_path: options.cwd,
         options: agent_options,
       });
       set_current_agent(agent_id);
-    } else if (dialogMode === "edit" && editingSessionKey) {
-      await updateSession(editingSessionKey, { title, options });
+    } else if (dialogMode === "edit" && editingAgentId) {
+      await update_agent(editingAgentId, {
+        name: title,
+        options: agent_options,
+      });
     }
-  }, [dialogMode, editingSessionKey, create_agent, set_current_agent, updateSession]);
+  }, [dialogMode, editingAgentId, create_agent, set_current_agent, update_agent]);
 
-  const handleEditSession = useCallback((key: string) => {
+  const handleEditAgent = useCallback((agent_id: string) => {
     setDialogMode("edit");
-    setEditingSessionKey(key);
+    setEditingAgentId(agent_id);
     setIsDialogOpen(true);
   }, []);
+
+  const handleValidateAgentName = useCallback(async (name: string) => {
+    const exclude_agent_id = dialogMode === "edit" ? (editingAgentId || undefined) : undefined;
+    return validateAgentNameApi(name, exclude_agent_id);
+  }, [dialogMode, editingAgentId]);
 
   const handleSessionSelect = useCallback((key: string) => {
     setCurrentSession(key);
@@ -155,7 +186,7 @@ export default function Home() {
         on_session_select={handleSessionSelect}
         on_delete_session={handleDeleteSession}
         on_edit_title={handleEditTitle}
-        on_edit_agent={handleEditSession}
+        on_edit_agent={handleEditAgent}
         is_collapsed={isSidebarCollapsed}
         on_toggle_collapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
       />
@@ -170,16 +201,9 @@ export default function Home() {
         isOpen={isDialogOpen}
         onClose={() => setIsDialogOpen(false)}
         onSave={handleSaveAgentOptions}
-        initialTitle={
-          dialogMode === "edit" && editingSessionKey
-            ? sessions.find(s => s.session_key === editingSessionKey)?.title
-            : undefined
-        }
-        initialOptions={
-          dialogMode === "edit" && editingSessionKey
-            ? sessions.find(s => s.session_key === editingSessionKey)?.options
-            : initialOptions
-        }
+        onValidateName={handleValidateAgentName}
+        initialTitle={dialogInitialTitle}
+        initialOptions={dialogInitialOptions}
       />
     </main>
   );

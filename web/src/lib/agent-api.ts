@@ -106,6 +106,7 @@ export const createSession = async (session_key: string, params: CreateSessionPa
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       session_key: session_key,
+      agent_id: params.agent_id,
       title: params.title,
       options: options_obj,
     }),

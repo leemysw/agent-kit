@@ -16,12 +16,16 @@ Agent API
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 """
 
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException
 
 from agent.service.agent_manager import agent_manager
-from agent.service.schema.model_agent import AAgent, AgentOptions, CreateAgentRequest, UpdateAgentRequest
+from agent.service.schema.model_agent import (
+    AAgent,
+    CreateAgentRequest,
+    UpdateAgentRequest,
+)
 from agent.service.session_store import session_store
 from agent.shared.server.common import resp
 
@@ -43,11 +47,15 @@ async def get_agents():
 @router.post("/agents")
 async def create_agent(request: CreateAgentRequest):
     """创建新 Agent"""
-    agent = await agent_manager.create_agent(
-        name=request.name,
-        workspace_path=request.workspace_path,
-        options=request.options,
-    )
+    try:
+        agent = await agent_manager.create_agent(
+            name=request.name,
+            workspace_path=request.workspace_path,
+            options=request.options,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     if not agent:
         raise HTTPException(status_code=500, detail="Failed to create agent")
     return resp.ok(resp.Resp(data=agent.model_dump()))
@@ -69,11 +77,15 @@ async def update_agent(agent_id: str, request: UpdateAgentRequest):
     if not existing:
         raise HTTPException(status_code=404, detail="Agent not found")
 
-    success = await agent_manager.update_agent(
-        agent_id=agent_id,
-        name=request.name,
-        options=request.options,
-    )
+    try:
+        success = await agent_manager.update_agent(
+            agent_id=agent_id,
+            name=request.name,
+            options=request.options,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     if not success:
         raise HTTPException(status_code=500, detail="Failed to update agent")
 
@@ -88,6 +100,13 @@ async def delete_agent(agent_id: str):
     if not success:
         raise HTTPException(status_code=404, detail="Agent not found")
     return resp.ok(resp.Resp(data={"success": True}))
+
+
+@router.get("/agents/validate/name")
+async def validate_agent_name(name: str, exclude_agent_id: Optional[str] = None):
+    """校验 Agent 名称是否合法、是否重复。"""
+    result = await agent_manager.validate_agent_name(name, exclude_agent_id=exclude_agent_id)
+    return resp.ok(resp.Resp(data=result))
 
 
 # =====================================================
