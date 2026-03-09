@@ -1,1 +1,5 @@
+include LICENSE
+include README.md
+include README-zh.md
+include CHANGELOG.md
 exclude **/.DS_Store

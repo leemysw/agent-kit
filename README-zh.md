@@ -1,5 +1,5 @@
 <div align="center">
-<img src="docs/images/logo.png" alt="Agent Kit Logo" width="100%">
+<img src="https://raw.githubusercontent.com/leemysw/agent-kit/main/docs/images/logo.png" alt="Agent Kit Logo" width="100%">
 <p align="center">
   <em>基于 Claude Agent SDK 构建的生产级 AI 智能体开发框架</em><br>
   <em>Production-Ready AI Agent Development Framework Powered by Claude Agent SDK</em>
@@ -8,11 +8,11 @@
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-Latest-green.svg)](https://fastapi.tiangolo.com/)
-[![Next.js](https://img.shields.io/badge/Next.js-24.0%2B-black.svg)](https://nextjs.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-16.x-black.svg)](https://nextjs.org/)
 [![Docker Pulls](https://img.shields.io/docker/pulls/leemysw/agent-kit.svg)](https://hub.docker.com/r/leemysw/agent-kit)
 
 
-**[中文](./README-zh.md) | [English](./README.md)**
+**[中文](https://github.com/leemysw/agent-kit/blob/main/README-zh.md) | [English](https://github.com/leemysw/agent-kit/blob/main/README.md)**
 
 </div>
 
@@ -24,8 +24,8 @@
 AI Agent 应用。框架内置 WebSocket、Discord、Telegram 多通道接入能力，支持统一的会话路由与消息处理。
 
 <div align="center">
-<img src="docs/images/agent-kit-1.png" alt="" width="45.9%"/>
-<img src="docs/images/agent-kit-1.png" alt="" width="45.9%"/>
+<img src="https://raw.githubusercontent.com/leemysw/agent-kit/main/docs/images/agent-kit-2.png" alt="" width="45.9%"/>
+<img src="https://raw.githubusercontent.com/leemysw/agent-kit/main/docs/images/agent-kit-1.png" alt="" width="45.9%"/>
 </div>
 
 ### ✨ 核心特性
@@ -73,7 +73,7 @@ AI Agent 应用。框架内置 WebSocket、Discord、Telegram 多通道接入能
 ## 🏗️ 架构设计
 
 <div align="center">
-<img src="docs/images/architecture.png" alt="Architecture Diagram" width="100%">
+<img src="https://raw.githubusercontent.com/leemysw/agent-kit/main/docs/images/architecture.png" alt="Architecture Diagram" width="100%">
 </div>
 
 ---
@@ -99,9 +99,9 @@ AI Agent 应用。框架内置 WebSocket、Discord、Telegram 多通道接入能
 ### 前置要求
 
 - **Python**: 3.11 或更高版本
-- **Node.js**: 24.0 或更高版本
+- **Node.js**: 20 或更高版本
 - **Docker & Docker Compose**: 最新版本
-- **Agent API Key**: 从 [Anthropic](https://console.anthropic.com/) 获取 🤔 [Bigmodel](https://open.bigmodel.cn/) 获取
+- **Agent API Key**: 从 [Anthropic](https://console.anthropic.com/) 或 [Bigmodel](https://open.bigmodel.cn/) 获取
 
 ### 安装步骤
 
@@ -126,18 +126,6 @@ cp example.env .env
 
 ```bash
 make start
-
-╰─ make start
-TAG=0.1.2 docker compose -f deploy/docker-compose.yml up -d
-[+] Running 3/3
- ✔ Container deploy-agent-kit-1  Started                                                                                                                                           1.8s 
- ✔ Container deploy-web-1   Started                                                                                                                                           0.9s 
- ✔ Container deploy-nginx-1      Running                                                                                                                                           0.0s 
-
-✅ Agent Kit is running!
-🌐 Web UI: http://localhost
-📚 API Docs: http://localhost/agent/docs
-📋 Logs: run 'make logs' to view service logs
 ```
 
 **4️⃣ 访问应用**
@@ -159,8 +147,8 @@ cd agent-kit
 **2️⃣ 后端设置**
 
 ```bash
-# 安装 Python 依赖
-pip install -r agent/requirements.txt
+# 安装后端依赖和 CLI
+pip install -e .
 
 # 配置环境变量
 cp example.env .env
@@ -171,7 +159,7 @@ cp example.env .env
 
 ```env
 # Claude API 配置
-ANTHROPIC_API_KEY=your_api_key_here
+ANTHROPIC_AUTH_TOKEN=your_auth_token_here
 ANTHROPIC_BASE_URL=https://api.anthropic.com or https://open.bigmodel.cn/api/anthropic
 ANTHROPIC_MODEL=claude-3-5-sonnet-20241022 or glm-5
 
@@ -180,6 +168,7 @@ HOST=0.0.0.0
 PORT=8010
 DEBUG=true
 WORKERS=1
+WORKSPACE_PATH=
 ```
 
 **初始化存储：**
@@ -212,11 +201,19 @@ NEXT_PUBLIC_DEFAULT_MODEL=glm-5
 
 ```bash
 # 启动后端（在项目根目录）
-python main.py
+agent-kit run
 
 # 启动前端（在 web 目录）
 npm run dev
 ```
+
+也可以在项目根目录直接运行：
+
+```bash
+make dev
+```
+
+如果你只安装依赖而没有做 editable install，也可以使用 `python main.py` 启动后端。
 
 **5️⃣ 访问应用**
 
@@ -232,8 +229,11 @@ agent-kit/
 │   ├── api/                       # API 路由
 │   ├── core/                      # 核心配置
 │   ├── service/                   # 业务逻辑
-│   │   ├── websocket_handler.py   # WebSocket 处理
-│   │   └── session_manager.py     # 会话管理
+│   │   ├── agent/                 # Agent 工作区与模板
+│   │   ├── db/                    # 文件存储仓库
+│   │   ├── process/               # 消息处理流水线
+│   │   ├── session/               # 会话路由
+│   │   └── storage/               # JSON/JSONL 存储层
 │   ├── shared/                    # 共享模块
 │   └── utils/                     # 工具函数
 ├── web/                           # 前端应用
@@ -247,7 +247,7 @@ agent-kit/
 ├── deploy/                        # 部署相关
 ├── docs/                          # 文档
 │   ├── websocket-session-flow.md  # WebSocket 流程
-│   └── guides/                    # Cluade Agent SDK详细指南
+│   └── guides/                    # Claude Agent SDK 详细指南
 ├── main.py                        # 应用入口
 └── README.md                      # 本文件
 ```
@@ -270,6 +270,7 @@ agent-kit/
 - 每个会话使用 `sessions/<encoded_session_key>/meta.json`
 - 消息历史保存在 `sessions/<encoded_session_key>/messages.jsonl`
 - 检测到旧 SQLite 数据时会在首次启动自动迁移
+
 ### 3. 智能会话管理
 
 - ✅ 多会话支持
@@ -296,13 +297,14 @@ agent-kit/
 
 | 配置项                  | 说明            | 默认值                         |
 |----------------------|---------------|-----------------------------|
-| `ANTHROPIC_API_KEY`  | Claude API 密钥 | -                           |
+| `ANTHROPIC_AUTH_TOKEN` | Claude 认证令牌 | - |
 | `ANTHROPIC_BASE_URL` | API 基础 URL    | `https://api.anthropic.com` |
-| `ANTHROPIC_MODEL`    | 使用的模型         | `glm-5`                   |
+| `ANTHROPIC_MODEL`    | 使用的模型      | `glm-5` |
 | `HOST`               | 服务器主机         | `0.0.0.0`                   |
 | `PORT`               | 服务器端口         | `8010`                      |
-| `DEBUG`              | 调试模式          | `false`                     |
+| `DEBUG`              | 调试模式          | `true`                      |
 | `WORKERS`            | 工作进程数         | `1`                         |
+| `WORKSPACE_PATH`     | Workspace 根目录 | `~/.agent-kit/workspace` |
 
 ### 前端配置项
 
@@ -369,7 +371,7 @@ agent:<agentId>:<channel>:<chatType>:<ref>[:topic:<threadId>]
 
 ## 📄 许可证
 
-本项目采用 Apache License 2.0 许可证 - 详情请查看 [LICENSE](LICENSE) 文件
+本项目采用 Apache License 2.0 许可证，详情请查看 [LICENSE](https://github.com/leemysw/agent-kit/blob/main/LICENSE) 文件
 
 ---
 
@@ -381,7 +383,7 @@ agent:<agentId>:<channel>:<chatType>:<ref>[:topic:<threadId>]
 
 <div align="center">
 
-### Made with ❤️ by [leemysw](https://github.com/leemysw)
+### by [leemysw](https://github.com/leemysw)
 
 **如果这个项目对你有帮助，请给它一个 ⭐️ Star！**
 

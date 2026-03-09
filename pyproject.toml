@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools>=77.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,15 +7,29 @@ name = "agent-kit"
 dynamic = ["version", "dependencies"]
 description = "Production-Ready AI Agent Development Framework"
 authors = [{ name = "leemysw" }]
+readme = { file = "README.md", content-type = "text/markdown" }
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"
+keywords = [
+    "agent",
+    "claude-agent-sdk",
+    "fastapi",
+    "telegram",
+    "discord",
+]
 classifiers = [
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Operating System :: OS Independent",
-    "Private :: Do Not Upload",
 ]
+
+[project.urls]
+Homepage = "https://github.com/leemysw/agent-kit"
+Repository = "https://github.com/leemysw/agent-kit"
+Issues = "https://github.com/leemysw/agent-kit/issues"
+Changelog = "https://github.com/leemysw/agent-kit/blob/main/CHANGELOG.md"
 
 [tool.setuptools]
 include-package-data = true

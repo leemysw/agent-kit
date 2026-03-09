@@ -1,5 +1,5 @@
 <div align="center">
-<img src="docs/images/logo.png" alt="Agent Kit Logo">
+<img src="https://raw.githubusercontent.com/leemysw/agent-kit/main/docs/images/logo.png" alt="Agent Kit Logo">
 <p align="center">
   <em>Production-Ready AI Agent Development Framework Powered by Claude Agent SDK</em><br>
   <em>基于 Claude Agent SDK 构建的生产级 AI 智能体开发框架</em>
@@ -8,10 +8,10 @@
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-Latest-green.svg)](https://fastapi.tiangolo.com/)
-[![Next.js](https://img.shields.io/badge/Next.js-24.0%2B-black.svg)](https://nextjs.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-16.x-black.svg)](https://nextjs.org/)
 [![Docker Pulls](https://img.shields.io/docker/pulls/leemysw/agent-kit.svg)](https://hub.docker.com/r/leemysw/agent-kit)
 
-**[English](./README.md) | [中文](./README-zh.md)**
+**[English](https://github.com/leemysw/agent-kit/blob/main/README.md) | [中文](https://github.com/leemysw/agent-kit/blob/main/README-zh.md)**
 
 </div>
 
@@ -22,8 +22,8 @@
 **Agent Kit** is a comprehensive AI agent development framework that integrates **Claude Agent SDK**, providing a complete solution from frontend to backend. This project aims to help developers quickly build, deploy, and scale production-grade AI Agent applications. It includes built-in multi-channel access via WebSocket, Discord, and Telegram, with unified session routing and message handling.
 
 <div align="center">
-<img src="docs/images/agent-kit-1.png" alt="Agent Kit Screenshot" width="45.9%"/>
-<img src="docs/images/agent-kit-2.png" alt="Agent Kit Screenshot" width="45.9%"/>
+<img src="https://raw.githubusercontent.com/leemysw/agent-kit/main/docs/images/agent-kit-1.png" alt="Agent Kit Screenshot" width="45.9%"/>
+<img src="https://raw.githubusercontent.com/leemysw/agent-kit/main/docs/images/agent-kit-2.png" alt="Agent Kit Screenshot" width="45.9%"/>
 </div>
 
 ### ✨ Core Features
@@ -72,7 +72,7 @@
 ## 🏗️ Architecture
 
 <div align="center">
-<img src="docs/images/architecture.png" alt="Architecture Diagram" width="100%">
+<img src="https://raw.githubusercontent.com/leemysw/agent-kit/main/docs/images/architecture.png" alt="Architecture Diagram" width="100%">
 </div>
 
 ---
@@ -99,7 +99,7 @@
 ### Prerequisites
 
 - **Python**: 3.11 or higher
-- **Node.js**: 24.0 or higher
+- **Node.js**: 20 or higher
 - **Docker & Docker Compose**: Latest version
 - **Agent API Key**: Get from [Anthropic](https://console.anthropic.com/) or [Bigmodel](https://open.bigmodel.cn/)
 
@@ -126,16 +126,6 @@ cp example.env .env
 
 ```bash
 make start
-╰─ make start
-TAG=0.1.2 docker compose -f deploy/docker-compose.yml up -d
-[+] Running 3/3
- ✔ Container deploy-agent-kit-1  Started                                                                                                                                           1.8s 
- ✔ Container deploy-web-1   Started                                                                                                                                           0.9s 
- ✔ Container deploy-nginx-1      Running                                                                                                                                           0.0s 
-
-✅ Agent Kit is running!
-🌐 Web UI: http://localhost
-📋 Logs: run 'make logs' to view service logs
 ```
 
 **4️⃣ Access the application**
@@ -157,8 +147,8 @@ cd agent-kit
 **2️⃣ Backend setup**
 
 ```bash
-# Install Python dependencies
-pip install -r agent/requirements.txt
+# Install backend dependencies and CLI
+pip install -e .
 
 # Configure environment variables
 cp example.env .env
@@ -169,7 +159,7 @@ cp example.env .env
 
 ```env
 # Claude API configuration
-ANTHROPIC_API_KEY=your_api_key_here
+ANTHROPIC_AUTH_TOKEN=your_auth_token_here
 ANTHROPIC_BASE_URL=https://api.anthropic.com or https://open.bigmodel.cn/api/anthropic
 ANTHROPIC_MODEL=claude-3-5-sonnet-20241022 or glm-5
 
@@ -178,6 +168,7 @@ HOST=0.0.0.0
 PORT=8010
 DEBUG=true
 WORKERS=1
+WORKSPACE_PATH=
 ```
 
 **Storage initialization:**
@@ -210,11 +201,19 @@ NEXT_PUBLIC_DEFAULT_MODEL=glm-5
 
 ```bash
 # Start backend (in project root directory)
-python main.py
+agent-kit run
 
 # Start frontend (in web directory)
 npm run dev
 ```
+
+You can also run both backend and frontend from the project root:
+
+```bash
+make dev
+```
+
+If you only install dependencies without editable install, use `python main.py` to start the backend instead.
 
 **5️⃣ Access the application**
 
@@ -230,8 +229,11 @@ agent-kit/
 │   ├── api/                       # API routes
 │   ├── core/                      # Core configuration
 │   ├── service/                   # Business logic
-│   │   ├── websocket_handler.py   # WebSocket handler
-│   │   └── session_manager.py     # Session management
+│   │   ├── agent/                 # Agent workspace and templates
+│   │   ├── db/                    # File-based repositories
+│   │   ├── process/               # Message processing pipeline
+│   │   ├── session/               # Session routing
+│   │   └── storage/               # JSON/JSONL storage layer
 │   ├── shared/                    # Shared modules
 │   └── utils/                     # Utility functions
 ├── web/                           # Frontend application
@@ -302,13 +304,14 @@ agent-kit/
 
 | Config Item | Description | Default Value |
 |------------|------------|--------------|
-| `ANTHROPIC_API_KEY` | Claude API key | - |
+| `ANTHROPIC_AUTH_TOKEN` | Claude auth token | - |
 | `ANTHROPIC_BASE_URL` | API base URL | `https://api.anthropic.com` |
 | `ANTHROPIC_MODEL` | Model to use | `glm-5` |
 | `HOST` | Server host | `0.0.0.0` |
 | `PORT` | Server port | `8010` |
-| `DEBUG` | Debug mode | `false` |
+| `DEBUG` | Debug mode | `true` |
 | `WORKERS` | Number of workers | `1` |
+| `WORKSPACE_PATH` | Workspace root path | `~/.agent-kit/workspace` |
 
 ### Frontend Configuration
 
@@ -368,20 +371,20 @@ Examples:
 
 For detailed guides and API documentation, please visit:
 
-- **[Frontend API Documentation](web/README.md)** - React components, types, and API interfaces
-- **[WebSocket Session Flow](docs/websocket-session-flow.md)** - WebSocket session and data flow
-- **[Guides](docs/guides/)** - Comprehensive guides for various features
+- **[Frontend API Documentation](https://github.com/leemysw/agent-kit/blob/main/web/README.md)** - React components, types, and API interfaces
+- **[WebSocket Session Flow](https://github.com/leemysw/agent-kit/blob/main/docs/websocket-session-flow.md)** - WebSocket session and data flow
+- **[Guides](https://github.com/leemysw/agent-kit/tree/main/docs/guides)** - Comprehensive guides for various features
 
 ### Development Guides
 
-- **[Session Management](docs/guides/sessions.md)** - Session creation, management, and message handling
-- **[Streaming vs Single Mode](docs/guides/streaming-vs-single-mode.md)** - AI response mode comparison
-- **[Custom Tools](docs/guides/custom-tools.md)** - Creating and using custom AI tools
-- **[Slash Commands](docs/guides/slash-commands.md)** - Custom slash command development
-- **[Skills Guide](docs/guides/skills.md)** - Skill system usage and development
-- **[MCP Integration](docs/guides/mcp.md)** - Model Context Protocol integration
-- **[Hosting Guide](docs/guides/hosting.md)** - Production deployment and configuration
-- **[Permissions Management](docs/guides/permissions.md)** - Permission control and security settings
+- **[Session Management](https://github.com/leemysw/agent-kit/blob/main/docs/guides/sessions.md)** - Session creation, management, and message handling
+- **[Streaming vs Single Mode](https://github.com/leemysw/agent-kit/blob/main/docs/guides/streaming-vs-single-mode.md)** - AI response mode comparison
+- **[Custom Tools](https://github.com/leemysw/agent-kit/blob/main/docs/guides/custom-tools.md)** - Creating and using custom AI tools
+- **[Slash Commands](https://github.com/leemysw/agent-kit/blob/main/docs/guides/slash-commands.md)** - Custom slash command development
+- **[Skills Guide](https://github.com/leemysw/agent-kit/blob/main/docs/guides/skills.md)** - Skill system usage and development
+- **[MCP Integration](https://github.com/leemysw/agent-kit/blob/main/docs/guides/mcp.md)** - Model Context Protocol integration
+- **[Hosting Guide](https://github.com/leemysw/agent-kit/blob/main/docs/guides/hosting.md)** - Production deployment and configuration
+- **[Permissions Management](https://github.com/leemysw/agent-kit/blob/main/docs/guides/permissions.md)** - Permission control and security settings
 
 ---
 
@@ -397,7 +400,7 @@ If you find a bug or have a new feature suggestion, please submit it through [Gi
 
 ## 📄 License
 
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the Apache License 2.0 - see the [LICENSE](https://github.com/leemysw/agent-kit/blob/main/LICENSE) file for details.
 
 ---
 
@@ -409,7 +412,7 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 
 <div align="center">
 
-### Made with ❤️ by [leemysw](https://github.com/leemysw)
+### by [leemysw](https://github.com/leemysw)
 
 **If this project helps you, please give it a ⭐️ Star!**
 
