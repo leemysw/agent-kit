@@ -60,6 +60,7 @@
 - TypeScript type safety
 - Zustand state management
 - Complete session management
+- Multi-Agent management system
 - Comprehensive documentation
 
 </td>
@@ -83,6 +84,7 @@
 - [Quick Start](#-quick-start)
 - [Project Structure](#-project-structure)
 - [Core Features](#-core-features)
+- [Agent Management](#-agent-management)
 - [Configuration](#-configuration)
 - [Third-Party IM Integration](#-third-party-im-integration)
 - [API Documentation](#-api-documentation)
@@ -280,6 +282,13 @@ agent-kit/
 
 - ✅ Fine-grained tool permission control
 - ✅ User confirmation mechanism
+
+### 5. Agent Management System
+
+- ✅ Multi-Agent creation and management
+- ✅ Independent workspace per Agent
+- ✅ Agent-level configuration (model, permissions, tools)
+- ✅ Workspace templates (AGENTS.md, USER.md, MEMORY.md, RUNBOOK.md)
 
 ---
 
