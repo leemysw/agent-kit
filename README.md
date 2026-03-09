@@ -155,6 +155,8 @@ cp example.env .env
 # Edit .env file and add your API key
 ```
 
+If you install the package with `pip install agent-kit`, only the backend service and CLI are included. The Web frontend is not bundled in the Python package. Use Docker deployment or run the repository source if you need the Web UI.
+
 **Configure `.env` file:**
 
 ```env

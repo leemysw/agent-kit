@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-03-09
+
 ### 🚀 Major Refactoring
 
 #### 存储层重构
@@ -22,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docker 部署改为持久化 `./data -> /home/agent/.agent-kit`
 - `makefile` 中数据库命令调整为文件存储相关命令
 - README 与部署文档统一更新为 Workspace 文件存储说明
+- 新增 Python 包发布流程，并补充 PyPI 所需元数据与说明
 
 ### Removed
 - `deploy/init-db.sh`
