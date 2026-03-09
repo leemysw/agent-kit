@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-03-09
+
+### Changed
+- PyPI 发布名调整为 `harness-agent-kit`，避免与现有项目名称过于相似而被拒绝
+- README 中的 pip 安装说明同步更新为新的发布名
+
 ## [0.3.1] - 2026-03-09
 
 ### 🚀 Major Refactoring

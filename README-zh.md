@@ -155,7 +155,7 @@ cp example.env .env
 # 编辑 .env 文件，添加你的 API 密钥
 ```
 
-如果通过 `pip install agent-kit` 安装，只包含后端服务和 CLI，不包含 Web 前端。需要使用 Web UI 时，请使用 Docker 部署或直接运行仓库源码。
+如果通过 `pip install harness-agent-kit` 安装，只包含后端服务和 CLI，不包含 Web 前端。需要使用 Web UI 时，请使用 Docker 部署或直接运行仓库源码。
 
 **配置 `.env` 文件：**
 
