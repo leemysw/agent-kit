@@ -72,19 +72,11 @@ RUN pip install /tmp/*.whl  --no-deps --force-reinstall && \
 
 # 创建启动脚本（在切换用户前创建）
 RUN echo '#!/bin/bash\n\
-# 确保数据库已初始化\n\
-/opt/app/init-db.sh\n\
-\n\
 # 启动应用\n\
-exec agent-kit' > /opt/app/entrypoint.sh
-
-# 复制初始化脚本和 Alembic 配置
-COPY ./deploy/init-db.sh /opt/app/init-db.sh
-COPY alembic.ini /opt/app/alembic.ini
-COPY alembic /opt/app/alembic
+exec agent-kit run' > /opt/app/entrypoint.sh
 
 # 给脚本执行权限
-RUN chmod +x /opt/app/init-db.sh /opt/app/entrypoint.sh
+RUN chmod +x /opt/app/entrypoint.sh
 
 # 切换到非 root 用户
 RUN chown -R agent:agent /opt/app

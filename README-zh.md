@@ -143,6 +143,7 @@ TAG=0.1.2 docker compose -f deploy/docker-compose.yml up -d
 **4️⃣ 访问应用**
 
 - 应用地址: [http://localhost](http://localhost)
+- 持久化运行数据: 仓库根目录下的 `./data` 会挂载到容器内的 `/home/agent/.agent-kit`
 
 ---
 

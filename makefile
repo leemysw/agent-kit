@@ -11,31 +11,12 @@ help: ## Show this help message
 	@echo ""
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-# Database commands
-init-alembic: ## Initialize Alembic for database migrations
-	alembic init -t async alembic
+# Storage commands
+init-storage: ## Initialize local runtime directories
+	mkdir -p logs cache data
 
-init-db: ## Initialize database structure
-	alembic revision --autogenerate -m "初始数据库结构"
-
-upgrade-db: ## Upgrade database to latest version
-	alembic upgrade head
-
-downgrade-db: ## Downgrade database to base version
-	alembic downgrade base
-
-create-migration: ## Create new migration (usage: make create-migration MSG="description")
-	@if [ -z "$(MSG)" ]; then \
-		echo "Usage: make create-migration MSG='your message'"; \
-		exit 1; \
-	fi
-	alembic revision --autogenerate -m "$(MSG)"
-
-current-version: ## Show current database version
-	alembic current
-
-history-version: ## Show database migration history
-	alembic history --verbose
+show-storage: ## Show local workspace storage location
+	@echo "$$(pwd)/data -> mounted to /home/agent/.agent-kit in Docker"
 
 # Development commands
 run-web: ## Run frontend in development mode
@@ -99,19 +80,20 @@ down: stop ## Legacy alias for stop
 log: logs ## Legacy alias for logs
 reboot: restart ## Legacy alias for restart
 
-# Database management
-reset-db: ## Reset database (WARNING: This will delete all data!)
-	@echo "WARNING: This will delete all database data!"
+# Data management
+reset-data: ## Reset local persisted runtime data (WARNING: This will delete all stored data!)
+	@echo "WARNING: This will delete all persisted runtime data under ./data and ./cache!"
 	@read -p "Are you sure? [y/N] " -n 1 -r; \
 	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
 		echo ""; \
 		echo "Stopping services..."; \
 		TAG=$(TAG) docker compose -f deploy/docker-compose.yml down; \
-		echo "Removing database volume..."; \
-		docker volume rm agent-kit_db_data 2>/dev/null || true; \
+		echo "Removing local data directories..."; \
+		rm -rf ./data ./cache; \
+		mkdir -p ./data ./cache; \
 		echo "Starting services..."; \
 		TAG=$(TAG) docker compose -f deploy/docker-compose.yml up -d; \
-		echo "Database reset complete!"; \
+		echo "Data reset complete!"; \
 	else \
 		echo ""; \
 		echo "Cancelled."; \

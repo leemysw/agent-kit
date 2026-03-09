@@ -141,6 +141,7 @@ TAG=0.1.2 docker compose -f deploy/docker-compose.yml up -d
 **4️⃣ Access the application**
 
 - Application URL: [http://localhost](http://localhost)
+- Persistent runtime data: `./data` in the repository is mounted to `/home/agent/.agent-kit` inside the container
 
 ---
 

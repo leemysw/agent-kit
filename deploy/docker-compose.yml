@@ -20,6 +20,7 @@ services:
       - net
     volumes:
       - /usr/share/zoneinfo/Asia/Shanghai:/etc/localtime:ro
+      - ../data:/home/agent/.agent-kit
       - ../logs:/opt/app/logs
       - ../cache:/opt/app/cache
       - ${DEFAULT_CWD:-cwd}:/opt/app/playground
