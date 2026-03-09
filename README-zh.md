@@ -207,7 +207,6 @@ cp example.env .env.local
 # 开发环境配置
 NEXT_PUBLIC_API_URL=http://localhost:8010/agent/v1
 NEXT_PUBLIC_WS_URL=ws://localhost:8010/agent/v1/chat/ws
-NEXT_PUBLIC_DEFAULT_CWD=/opt/app/playground
 NEXT_PUBLIC_DEFAULT_MODEL=glm-5
 ```
 
@@ -307,7 +306,6 @@ agent-kit/
 |-----------------------------|--------------|----------------------------------------|
 | `NEXT_PUBLIC_API_URL`       | 后端 API 地址    | `http://localhost:8010/agent/v1`       |
 | `NEXT_PUBLIC_WS_URL`        | WebSocket 地址 | `ws://localhost:8010/agent/v1/chat/ws` |
-| `NEXT_PUBLIC_DEFAULT_CWD`   | 工作目录         | `/opt/app/playground`                  |
 | `NEXT_PUBLIC_DEFAULT_MODEL` | 默认模型         | `glm-5`                              |
 
 ---

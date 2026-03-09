@@ -205,7 +205,6 @@ cp example.env .env.local
 # Development environment configuration
 NEXT_PUBLIC_API_URL=http://localhost:8010/agent/v1
 NEXT_PUBLIC_WS_URL=ws://localhost:8010/agent/v1/chat/ws
-NEXT_PUBLIC_DEFAULT_CWD=/opt/app/playground
 NEXT_PUBLIC_DEFAULT_MODEL=glm-5
 ```
 
@@ -312,7 +311,6 @@ agent-kit/
 |------------|------------|--------------|
 | `NEXT_PUBLIC_API_URL` | Backend API URL | `http://localhost:8010/agent/v1` |
 | `NEXT_PUBLIC_WS_URL` | WebSocket URL | `ws://localhost:8010/agent/v1/chat/ws` |
-| `NEXT_PUBLIC_DEFAULT_CWD` | Working directory | `/opt/app/playground` |
 | `NEXT_PUBLIC_DEFAULT_MODEL` | Default model | `glm-5` |
 
 ---
