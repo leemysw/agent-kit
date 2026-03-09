@@ -113,7 +113,7 @@ async def resolve_session(
         thread_id: 线程 ID
 
     Returns:
-        Session ORM 对象
+        会话模型对象
     """
     from agent.service.session_store import session_store
 

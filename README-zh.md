@@ -40,7 +40,7 @@ AI Agent 应用。框架内置 WebSocket、Discord、Telegram 多通道接入能
 - Next.js 前端框架
 - WebSocket 实时通信
 - Discord / Telegram 第三方 IM 接入
-- SQLite + Alembic 数据库迁移
+- 基于 Workspace 的 JSON/JSONL 文件存储
 
 </td>
 <td width="33%" valign="top">
@@ -181,12 +181,9 @@ DEBUG=true
 WORKERS=1
 ```
 
-**初始化数据库：**
+**初始化存储：**
 
-```bash
-# 运行数据库迁移，创建数据表
-alembic upgrade head
-```
+后端现在默认使用基于 Workspace 的文件存储。会话元数据保存在 `meta.json`，消息历史追加写入 `messages.jsonl`。首次启动时如果检测到旧的 `cache/data/agent-kit.db`，会自动迁移历史数据。
 
 **3️⃣ 前端设置**
 
@@ -246,7 +243,6 @@ agent-kit/
 │   │   ├── lib/                   # 工具库
 │   │   ├── store/                 # Zustand 状态管理
 │   │   └── types/                 # TypeScript 类型
-├── alembic/                       # 数据库迁移
 ├── deploy/                        # 部署相关
 ├── docs/                          # 文档
 │   ├── websocket-session-flow.md  # WebSocket 流程
@@ -266,12 +262,19 @@ agent-kit/
 - ✅ 会话持久化
 - ✅ 消息历史管理
 
-### 2. 智能会话管理
+### 2. 存储模型
+
+- Agent 元数据保存在 `~/.agent-kit/agents/index.json`
+- 每个 Agent 的 workspace 内维护自己的 `agent.json`
+- 每个会话使用 `sessions/<encoded_session_key>/meta.json`
+- 消息历史保存在 `sessions/<encoded_session_key>/messages.jsonl`
+- 检测到旧 SQLite 数据时会在首次启动自动迁移
+### 3. 智能会话管理
 
 - ✅ 多会话支持
 - ✅ 会话搜索和筛选
 
-### 3. 强大的 AI 能力
+### 4. 强大的 AI 能力
 
 - ✅ Claude Agent SDK 集成
 - ❌ 自定义工具调用（开发中）
@@ -279,7 +282,7 @@ agent-kit/
 - ❌ Skills 技能系统（开发中）
 - ❌ MCP 协议支持（开发中）
 
-### 4. 权限与安全
+### 5. 权限与安全
 
 - ✅ 细粒度工具权限控制
 - ✅ 用户确认机制

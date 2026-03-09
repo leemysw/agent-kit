@@ -2,37 +2,66 @@
 # -*- coding: utf-8 -*-
 # =====================================================
 # @File   ：agent_repository.py
-# @Date   ：2026/3/4 15:09
+# @Date   ：2026/3/9 22:31
 # @Author ：leemysw
-# 2026/3/4 15:09   Create
+# 2026/3/9 22:31   Create
 # =====================================================
 
 """
 Agent 数据仓库
 
-[INPUT]: 依赖 db/models 的 Agent ORM，依赖 schema/model_agent 的 AAgent
+[INPUT]: 依赖文件存储层和 schema/model_agent 的 AAgent
 [OUTPUT]: 对外提供 AgentRepository（Agent CRUD）
 [POS]: db 模块的 Agent 持久化层，被 agent_manager 消费
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 """
 
-from datetime import datetime, timezone
+from datetime import datetime
+from pathlib import Path
+from threading import Lock
 from typing import Dict, List, Optional
 
-from sqlalchemy import func, select
-
-from agent.service.db.models import Agent
 from agent.service.schema.model_agent import AAgent, AgentOptions
-from agent.shared.database.async_sqlalchemy import db
+from agent.service.storage.file_store import FileStorageBootstrap, FileStoragePaths, JsonFileStore
 from agent.utils.logger import logger
 
 
 class AgentRepository:
-    """Agent 数据仓库"""
+    """Agent 文件数据仓库。"""
 
-    # =====================================================
-    # 创建
-    # =====================================================
+    def __init__(self) -> None:
+        self._bootstrap = FileStorageBootstrap()
+        self._paths = FileStoragePaths()
+        self._lock = Lock()
+        self._bootstrap.ensure_ready()
+
+    def _load_records(self) -> List[Dict]:
+        """读取 Agent 索引。"""
+        self._bootstrap.ensure_ready()
+        records = JsonFileStore.read_json(self._paths.agents_index_path, [])
+        return records if isinstance(records, list) else []
+
+    def _write_records(self, records: List[Dict]) -> None:
+        """写回 Agent 索引。"""
+        JsonFileStore.write_json(self._paths.agents_index_path, records)
+
+    def _write_agent_snapshot(self, record: Dict) -> None:
+        """将 Agent 快照同步到各自 workspace。"""
+        workspace_path = Path(record["workspace_path"]).expanduser()
+        workspace_path.mkdir(parents=True, exist_ok=True)
+        JsonFileStore.write_json(self._paths.get_agent_file_path(workspace_path), record)
+
+    @staticmethod
+    def _to_model(record: Dict) -> AAgent:
+        """将字典记录转换为 AAgent。"""
+        return AAgent(
+            agent_id=record["agent_id"],
+            name=record["name"],
+            workspace_path=record["workspace_path"],
+            options=AgentOptions(**(record.get("options") or {})),
+            created_at=record.get("created_at") or datetime.now().isoformat(),
+            status=record.get("status") or "active",
+        )
 
     async def create_agent(
         self,
@@ -41,100 +70,57 @@ class AgentRepository:
         workspace_path: str,
         options: Optional[Dict] = None,
     ) -> Optional[str]:
-        """创建 Agent，返回 agent_id"""
-        try:
-            async with db.session() as session:
-                agent = Agent(
-                    agent_id=agent_id,
-                    name=name,
-                    workspace_path=workspace_path,
-                    options=options,
-                    status="active",
-                    created_at=datetime.now(timezone.utc),
-                )
-                session.add(agent)
-                await session.commit()
-                logger.info(f"✅ Agent 创建成功: {agent_id} ({name})")
-                return agent_id
-        except Exception as e:
-            logger.error(f"❌ 创建 Agent 失败: {e}")
-            return None
+        """创建 Agent，返回 agent_id。"""
+        with self._lock:
+            records = self._load_records()
+            if any(record.get("agent_id") == agent_id for record in records):
+                logger.warning(f"⚠️ Agent 已存在，跳过创建: {agent_id}")
+                return None
 
-    # =====================================================
-    # 查询
-    # =====================================================
+            record = {
+                "agent_id": agent_id,
+                "name": name,
+                "workspace_path": str(Path(workspace_path).expanduser()),
+                "options": options or {},
+                "created_at": datetime.now().isoformat(),
+                "status": "active",
+            }
+            records.append(record)
+            self._write_records(records)
+            self._write_agent_snapshot(record)
+            logger.info(f"✅ Agent 创建成功: {agent_id} ({name})")
+            return agent_id
 
     async def get_agent(self, agent_id: str) -> Optional[AAgent]:
-        """按 agent_id 获取 Agent"""
-        try:
-            async with db.session() as session:
-                result = await session.execute(
-                    select(Agent).where(Agent.agent_id == agent_id)
-                )
-                row = result.scalar_one_or_none()
-                if not row:
-                    return None
-                return AAgent(
-                    agent_id=row.agent_id,
-                    name=row.name,
-                    workspace_path=row.workspace_path,
-                    options=AgentOptions(**(row.options or {})),
-                    created_at=row.created_at,
-                    status=row.status,
-                )
-        except Exception as e:
-            logger.error(f"❌ 获取 Agent 失败: {e}")
-            return None
+        """按 agent_id 获取 Agent。"""
+        records = self._load_records()
+        for record in records:
+            if record.get("agent_id") == agent_id:
+                return self._to_model(record)
+        return None
 
     async def get_all_agents(self) -> List[AAgent]:
-        """获取所有活跃 Agent（按创建时间降序）"""
-        try:
-            async with db.session() as session:
-                result = await session.execute(
-                    select(Agent)
-                    .where(Agent.status == "active")
-                    .order_by(Agent.created_at.desc())
-                )
-                rows = result.scalars().all()
-                return [
-                    AAgent(
-                        agent_id=row.agent_id,
-                        name=row.name,
-                        workspace_path=row.workspace_path,
-                        options=AgentOptions(**(row.options or {})),
-                        created_at=row.created_at,
-                        status=row.status,
-                    )
-                    for row in rows
-                ]
-        except Exception as e:
-            logger.error(f"❌ 获取 Agent 列表失败: {e}")
-            return []
+        """获取所有活跃 Agent。"""
+        records = self._load_records()
+        active_records = [record for record in records if record.get("status", "active") == "active"]
+        active_records.sort(key=lambda item: str(item.get("created_at") or ""), reverse=True)
+        return [self._to_model(record) for record in active_records]
 
     async def exists_active_agent_name(
         self,
         name: str,
         exclude_agent_id: Optional[str] = None,
     ) -> bool:
-        """检查活跃 Agent 名称是否已存在（大小写不敏感）。"""
-        try:
-            async with db.session() as session:
-                stmt = (
-                    select(Agent.agent_id)
-                    .where(Agent.status == "active")
-                    .where(func.lower(Agent.name) == name.lower())
-                )
-                if exclude_agent_id:
-                    stmt = stmt.where(Agent.agent_id != exclude_agent_id)
-                result = await session.execute(stmt.limit(1))
-                return result.scalar_one_or_none() is not None
-        except Exception as e:
-            logger.error(f"❌ 检查 Agent 名称失败: {e}")
-            return False
-
-    # =====================================================
-    # 更新
-    # =====================================================
+        """检查活跃 Agent 名称是否已存在。"""
+        normalized = name.lower()
+        for record in self._load_records():
+            if record.get("status", "active") != "active":
+                continue
+            if exclude_agent_id and record.get("agent_id") == exclude_agent_id:
+                continue
+            if str(record.get("name", "")).lower() == normalized:
+                return True
+        return False
 
     async def update_agent(
         self,
@@ -142,73 +128,59 @@ class AgentRepository:
         name: Optional[str] = None,
         options: Optional[Dict] = None,
     ) -> bool:
-        """更新 Agent"""
-        try:
-            async with db.session() as session:
-                result = await session.execute(
-                    select(Agent).where(Agent.agent_id == agent_id)
-                )
-                agent = result.scalar_one_or_none()
-                if not agent:
-                    return False
+        """更新 Agent。"""
+        with self._lock:
+            records = self._load_records()
+            for record in records:
+                if record.get("agent_id") != agent_id:
+                    continue
 
                 if name is not None:
-                    agent.name = name
+                    record["name"] = name
                 if options is not None:
-                    # 合并 options
-                    existing = agent.options or {}
-                    existing.update(options)
-                    agent.options = existing
+                    merged_options = dict(record.get("options") or {})
+                    merged_options.update(options)
+                    record["options"] = merged_options
 
-                await session.commit()
+                self._write_records(records)
+                self._write_agent_snapshot(record)
                 logger.info(f"✅ Agent 更新成功: {agent_id}")
                 return True
-        except Exception as e:
-            logger.error(f"❌ 更新 Agent 失败: {e}")
-            return False
+
+        return False
 
     async def update_agent_workspace_path(self, agent_id: str, workspace_path: str) -> bool:
         """更新 Agent 的工作空间路径。"""
-        try:
-            async with db.session() as session:
-                result = await session.execute(
-                    select(Agent).where(Agent.agent_id == agent_id)
-                )
-                agent = result.scalar_one_or_none()
-                if not agent:
-                    return False
+        target_path = str(Path(workspace_path).expanduser())
+        with self._lock:
+            records = self._load_records()
+            for record in records:
+                if record.get("agent_id") != agent_id:
+                    continue
 
-                agent.workspace_path = workspace_path
-                await session.commit()
-                logger.info(f"✅ Agent workspace_path 已更新: {agent_id} -> {workspace_path}")
+                record["workspace_path"] = target_path
+                self._write_records(records)
+                self._write_agent_snapshot(record)
+                logger.info(f"✅ Agent workspace_path 已更新: {agent_id} -> {target_path}")
                 return True
-        except Exception as e:
-            logger.error(f"❌ 更新 Agent workspace_path 失败: {e}")
-            return False
 
-    # =====================================================
-    # 删除
-    # =====================================================
+        return False
 
     async def delete_agent(self, agent_id: str) -> bool:
-        """删除 Agent（软删除）"""
-        try:
-            async with db.session() as session:
-                result = await session.execute(
-                    select(Agent).where(Agent.agent_id == agent_id)
-                )
-                agent = result.scalar_one_or_none()
-                if not agent:
-                    return False
+        """软删除 Agent。"""
+        with self._lock:
+            records = self._load_records()
+            for record in records:
+                if record.get("agent_id") != agent_id:
+                    continue
 
-                agent.status = "archived"
-                await session.commit()
+                record["status"] = "archived"
+                self._write_records(records)
+                self._write_agent_snapshot(record)
                 logger.info(f"🗑️ Agent 已归档: {agent_id}")
                 return True
-        except Exception as e:
-            logger.error(f"❌ 删除 Agent 失败: {e}")
-            return False
+
+        return False
 
 
-# 全局实例
 agent_repository = AgentRepository()

@@ -12,7 +12,7 @@
 """
 消息历史存储
 
-[INPUT]: 依赖 db/session_repository
+[INPUT]: 依赖文件版 session_repository
 [OUTPUT]: 对外提供 MessageHistoryStore（会话和消息的业务层操作）
 [POS]: service 层的存储门面，被 ChatHandler/SessionManager/API 消费
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
@@ -30,7 +30,7 @@ class MessageHistoryStore:
     """消息历史存储 — session_key 路由"""
 
     def __init__(self):
-        logger.info(f"📁 历史存储初始化: 使用ORM")
+        logger.info("📁 历史存储初始化: 使用 workspace 文件存储")
 
     # =====================================================
     # Session 操作 — 以 session_key 为主键

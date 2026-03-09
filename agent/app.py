@@ -26,11 +26,7 @@ channel_manager = ChannelManager()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
-        try:
-            from agent.shared.database.get_db import get_db
-            get_db(db_type=settings.MAIN_DB)
-        except Exception as e:
-            logger.error(f"Failed to connect to database: {e}")
+        logger.info("📁 使用 workspace 文件存储模式启动")
 
         # 注册并启动消息通道
         await _register_channels()

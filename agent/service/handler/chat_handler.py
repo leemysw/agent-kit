@@ -130,7 +130,7 @@ class ChatHandler(BaseHandler):
             logger.debug(f"♻️ 复用现有 session: {session_key}")
             return client
 
-        # 2. 查询数据库获取 resume session_id + 真正的 agent_id
+        # 2. 查询会话存储获取 resume session_id + 真正的 agent_id
         existing_session = await session_store.get_session_info(session_key)
         session_id = existing_session.session_id if existing_session else None
 

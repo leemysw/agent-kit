@@ -38,7 +38,7 @@
 - Next.js frontend framework
 - WebSocket real-time communication
 - Discord / Telegram third-party IM integration
-- SQLite + Alembic database migrations
+- Workspace-based JSON/JSONL file storage
 
 </td>
 <td width="33%" valign="top">
@@ -179,12 +179,9 @@ DEBUG=true
 WORKERS=1
 ```
 
-**Initialize database:**
+**Storage initialization:**
 
-```bash
-# Run database migrations to create tables
-alembic upgrade head
-```
+The backend now uses workspace-based file storage by default. Session metadata is stored in `meta.json`, and message history is appended to `messages.jsonl` under each Agent workspace. On first startup, legacy SQLite history in `cache/data/agent-kit.db` is migrated automatically if it exists.
 
 **3️⃣ Frontend setup**
 
@@ -244,7 +241,6 @@ agent-kit/
 │   │   ├── lib/                   # Utility library
 │   │   ├── store/                 # Zustand state management
 │   │   └── types/                 # TypeScript types
-├── alembic/                       # Database migrations
 ├── deploy/                        # Deployment files
 ├── docs/                          # Documentation
 │   ├── websocket-session-flow.md  # WebSocket flow
@@ -263,6 +259,14 @@ agent-kit/
 - ✅ Streaming response support
 - ✅ Session persistence
 - ✅ Message history management
+
+### Storage Model
+
+- Agent metadata is stored under `~/.agent-kit/agents/index.json`
+- Each Agent workspace keeps its own `agent.json`
+- Each session uses `sessions/<encoded_session_key>/meta.json`
+- Message history is stored in `sessions/<encoded_session_key>/messages.jsonl`
+- Legacy SQLite data is migrated automatically on first startup when detected
 
 ### 2. Intelligent Session Management
 

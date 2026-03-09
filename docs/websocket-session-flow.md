@@ -20,7 +20,7 @@ flowchart TD
     C --> D{agent_id在session_manager中?}
     
     D -->|存在| E[获取现有SDK client]
-    D -->|不存在| F{查询数据库}
+    D -->|不存在| F{查询会话文件}
     
     F -->|有历史记录| G[创建SDK client 带resume参数]
     F -->|无历史记录| H[创建新SDK client]
@@ -41,7 +41,7 @@ sequenceDiagram
     participant Frontend as 前端
     participant WebSocket as WebSocketHandler
     participant SessionManager as SessionManager
-    participant Database as 数据库
+    participant Storage as Workspace文件存储
     participant SDK as ClaudeSDKClient
 
     Frontend->>WebSocket: {type: "chat", agent_id: "xxx", content: "你好"}
@@ -51,18 +51,18 @@ sequenceDiagram
     alt Session已在内存
         SessionManager-->>WebSocket: 返回现有client
     else Session不在内存
-        SessionManager->>Database: 查询session_info(agent_id)
+        SessionManager->>Storage: 查询session_info(agent_id)
         
-        alt 数据库有历史
-            Database-->>SessionManager: session_id="abc123"
+        alt 文件存储有历史
+            Storage-->>SessionManager: session_id="abc123"
             SessionManager->>SDK: ClaudeSDKClient(resume="abc123")
-        else 数据库无历史
-            Database-->>SessionManager: null
+        else 文件存储无历史
+            Storage-->>SessionManager: null
             SessionManager->>SDK: ClaudeSDKClient()
         end
         
         SessionManager->>SessionManager: 缓存client
-        SessionManager->>Database: 保存/更新session
+        SessionManager->>Storage: 保存/更新session
         SessionManager-->>WebSocket: 返回client
     end
     
@@ -75,7 +75,7 @@ sequenceDiagram
     
     Note over WebSocket,SessionManager: 如果是首次获取session_id
     WebSocket->>SessionManager: register_sdk_session(agent_id, session_id)
-    SessionManager->>Database: 更新session_id
+    SessionManager->>Storage: 更新session_id
 ```
 
 ### 3. Session切换流程

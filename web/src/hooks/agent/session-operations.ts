@@ -26,97 +26,6 @@ export function createStartSession(
 }
 
 /**
- * 检测并标记未完成的工具调用
- * 当页面刷新时，如果有工具调用没有对应的结果，将其标记为中断状态
- * 同时添加虚拟的 ResultMessage 以便 UI 正确显示完成状态
- */
-function markInterruptedToolCalls(messages: Message[]): Message[] {
-  // 收集所有 tool_use id 和 tool_result 的 tool_use_id
-  const toolUseIds = new Set<string>();
-  const toolResultIds = new Set<string>();
-  // 检查是否已经有 resultMessage
-  let hasResultMessage = false;
-
-  for (const msg of messages) {
-    if (msg.role === 'result') {
-      hasResultMessage = true;
-    }
-    if (msg.role === 'assistant' && Array.isArray((msg as any).content)) {
-      for (const block of (msg as any).content) {
-        if (block.type === 'tool_use' && block.id) {
-          toolUseIds.add(block.id);
-        }
-        if (block.type === 'tool_result' && block.tool_use_id) {
-          toolResultIds.add(block.tool_use_id);
-        }
-      }
-    }
-  }
-
-  // 找出未完成的工具调用
-  const incompleteToolIds = [...toolUseIds].filter(id => !toolResultIds.has(id));
-
-  if (incompleteToolIds.length === 0) {
-    return messages;
-  }
-
-  console.debug('[markInterruptedToolCalls] 发现未完成的工具调用:', incompleteToolIds);
-
-  // 为未完成的工具添加中断状态的 tool_result
-  const updatedMessages = messages.map(msg => {
-    if (msg.role === 'assistant' && Array.isArray((msg as any).content)) {
-      const content = (msg as any).content;
-      const hasIncompleteTools = content.some(
-        (block: any) => block.type === 'tool_use' && incompleteToolIds.includes(block.id)
-      );
-
-      if (hasIncompleteTools) {
-        // 为每个未完成的工具添加中断状态的 tool_result
-        const additionalResults = content
-          .filter((block: any) => block.type === 'tool_use' && incompleteToolIds.includes(block.id))
-          .map((block: any) => ({
-            type: 'tool_result',
-            tool_use_id: block.id,
-            content: '任务已中断（页面刷新或连接断开）',
-            is_error: true,
-          }));
-
-        return {
-          ...msg,
-          content: [...content, ...additionalResults],
-        };
-      }
-    }
-    return msg;
-  });
-
-  // 如果没有 resultMessage，添加一个虚拟的中断状态 ResultMessage
-  if (!hasResultMessage && updatedMessages.length > 0) {
-    // 获取最后一条消息的信息用于构造 ResultMessage
-    const lastMessage = updatedMessages[updatedMessages.length - 1];
-    const interruptedResultMessage: Message = {
-      message_id: `interrupted_result_${Date.now()}`,
-      round_id: lastMessage.round_id,
-      agent_id: lastMessage.agent_id,
-      session_id: lastMessage.session_id,
-      role: 'result',
-      timestamp: Date.now(),
-      subtype: 'error',
-      duration_ms: 0,
-      duration_api_ms: 0,
-      num_turns: 0,
-      result: '任务已中断（页面刷新或连接断开）',
-      is_error: true,
-    } as Message;
-
-    console.debug('[markInterruptedToolCalls] 添加虚拟 ResultMessage:', interruptedResultMessage);
-    updatedMessages.push(interruptedResultMessage);
-  }
-
-  return updatedMessages;
-}
-
-/**
  * 加载指定会话
  * 设置sessionKey并从后端加载历史消息
  */
@@ -141,10 +50,7 @@ export const createLoadSession = (
     const data = await getSessionMessages(id);
 
     if (data && Array.isArray(data)) {
-      // 检测并标记未完成的工具调用（页面刷新时中断的任务）
-      const finalMessages = markInterruptedToolCalls(data);
-
-      setMessages(finalMessages);
+      setMessages(data);
     } else {
       console.debug(`[loadSession] 没有收到有效消息数据:`, data);
     }
@@ -199,12 +105,11 @@ export function createLoadHistoryMessages(
     try {
       const messages = await getSessionMessages(sessionKey);
       if (Array.isArray(messages)) {
-        const finalMessages = markInterruptedToolCalls(messages);
-        console.debug(`[useAgentSession] Loaded ${finalMessages.length} messages`);
-        setMessages(finalMessages);
+        console.debug(`[useAgentSession] Loaded ${messages.length} messages`);
+        setMessages(messages);
 
         // 同时更新到session store中缓存
-        updateSession(sessionKey, { messages: finalMessages });
+        updateSession(sessionKey, { messages });
       }
     } catch (err) {
       console.error('[useAgentSession] Failed to load history:', err);

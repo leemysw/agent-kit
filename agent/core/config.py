@@ -70,10 +70,6 @@ class Settings(BaseSettings):
     CACHE_FILE_DIR: str = os.path.abspath(os.path.join(os.getcwd(), "cache"))
     DEFAULT_CACHE_TTL_DAYS: int = 7
 
-    # ==============================================================
-    MAIN_DB:str = "async_sqlite"
-    DATABASE_URL: str = f"sqlite+aiosqlite:///{CACHE_FILE_DIR}/data/agent-kit.db"
-
     # Key
     ANTHROPIC_AUTH_TOKEN: str = ""
     ANTHROPIC_BASE_URL: str = ""
