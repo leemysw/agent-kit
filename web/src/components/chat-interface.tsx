@@ -6,6 +6,8 @@ import { useAgentSession } from "@/hooks/agent";
 import { MessageItem } from "@/components/message";
 import { useExtractTodos } from "@/hooks/use-extract-todos";
 import { useSessionLoader } from "@/hooks/use-session-loader";
+import { useSessionStore } from "@/store/session";
+import { useAgentStore } from "@/store/agent";
 
 import ChatHeader from "@/components/header/chat-header";
 import ChatInput from "@/components/chat/chat-input";
@@ -38,6 +40,24 @@ function groupMessagesByRound(messages: Message[]): Map<string, Message[]> {
 
 export function ChatInterface({ sessionKey: externalSessionKey, onNewSession: onNewSession }: ChatInterfaceProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const currentSession = useSessionStore(
+    useCallback(
+      (state) => (externalSessionKey ? state.sessions.find(session => session.session_key === externalSessionKey) : undefined),
+      [externalSessionKey]
+    )
+  );
+  const currentAgent = useAgentStore(
+    useCallback(
+      (state) => {
+        if (!currentSession?.agent_id) {
+          return undefined;
+        }
+        return state.agents.find(agent => agent.agent_id === currentSession.agent_id);
+      },
+      [currentSession?.agent_id]
+    )
+  );
+  const includePartialMessages = currentAgent?.options?.include_partial_messages ?? true;
 
   const {
     error,
@@ -53,6 +73,7 @@ export function ChatInterface({ sessionKey: externalSessionKey, onNewSession: on
     deleteRound,
     regenerate,
   } = useAgentSession({
+    includePartialMessages,
     onError: (err) => {
       console.error("Session error:", err);
     },

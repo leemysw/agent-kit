@@ -1,16 +1,16 @@
 // !/usr/bin/env python
 // -*- coding: utf-8 -*-
 // =====================================================
-// @File   :session-options-dialog.tsx
+// @File   :agent-options.tsx
 // @Date   :2025-12-01 22:56
 // @Author :leemysw
 // 2025-12-01 22:56   Create
 // =====================================================
 
 /**
- * Session Options Dialog Component
+ * Agent 配置对话框组件
  *
- * 用于创建和编辑会话配置的对话框组件，支持多标签页配置界面
+ * 用于创建和编辑 Agent 配置的对话框组件，支持多标签页配置界面
  */
 
 "use client";
@@ -18,8 +18,7 @@
 import { useEffect, useState } from "react";
 import { MessageSquare, Settings, Sparkles, Wrench, X, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SessionOptions } from "@/types/session";
-import { AgentNameValidationResult } from "@/types/agent";
+import { AgentFormOptions, AgentNameValidationResult } from "@/types/agent";
 
 // ==================== 类型定义 ====================
 
@@ -31,16 +30,16 @@ interface AgentOptionsProps {
   /** 关闭对话框回调 */
   onClose: () => void;
   /** 保存配置回调 */
-  onSave: (title: string, options: SessionOptions) => void;
+  onSave: (title: string, options: AgentFormOptions) => void;
   /** 名称校验回调 */
   onValidateName?: (name: string) => Promise<AgentNameValidationResult>;
   /** 初始标题（编辑模式） */
   initialTitle?: string;
   /** 初始配置（编辑模式） */
-  initialOptions?: Partial<SessionOptions>;
+  initialOptions?: Partial<AgentFormOptions>;
 }
 
-interface AgentDialogInitialOptions extends Partial<SessionOptions> {
+interface AgentDialogInitialOptions extends Partial<AgentFormOptions> {
   permission_mode?: string;
   allowed_tools?: string[];
   disallowed_tools?: string[];
@@ -248,7 +247,7 @@ export function AgentOptions(
       finalAllowedTools.push('Skill');
     }
 
-    const options: SessionOptions = {
+    const options: AgentFormOptions = {
       model,
       permissionMode,
       allowedTools: finalAllowedTools,

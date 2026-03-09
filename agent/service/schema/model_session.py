@@ -36,7 +36,6 @@ class ASession(BaseModel):
     last_activity: datetime = Field(default_factory=datetime.now, description="最后活动时间")
     title: Optional[str] = Field(default=None, description="会话标题")
     message_count: int = Field(0, description="消息数量")
-    options: Optional[dict] = Field(default=None, description="会话选项")
 
     model_config = {"from_attributes": True}
 

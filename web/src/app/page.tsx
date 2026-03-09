@@ -16,7 +16,7 @@ import { AgentOptions } from "@/components/option/agent-options";
 import { useSessionStore } from "@/store/session";
 import { useAgentStore } from "@/store/agent";
 import { useInitializeSessions } from "@/hooks/use-initialize-sessions";
-import { SessionOptions } from "@/types/session";
+import { AgentFormOptions } from "@/types/agent";
 import { validateAgentNameApi } from "@/lib/agent-manage-api";
 import { initialOptions } from "@/config/options";
 
@@ -74,8 +74,10 @@ export default function Home() {
       permissionMode: editingAgent?.options?.permission_mode,
       allowedTools: editingAgent?.options?.allowed_tools,
       disallowedTools: editingAgent?.options?.disallowed_tools,
+      systemPrompt: editingAgent?.options?.system_prompt,
       maxTurns: editingAgent?.options?.max_turns,
       maxThinkingTokens: editingAgent?.options?.max_thinking_tokens,
+      includePartialMessages: editingAgent?.options?.include_partial_messages,
       skillsEnabled: editingAgent?.options?.skills_enabled,
       settingSources: editingAgent?.options?.setting_sources,
     };
@@ -108,14 +110,16 @@ export default function Home() {
     setCurrentSession(key);
   }, [current_agent_id, createSession, setCurrentSession]);
 
-  const handleSaveAgentOptions = useCallback(async (title: string, options: SessionOptions) => {
+  const handleSaveAgentOptions = useCallback(async (title: string, options: AgentFormOptions) => {
     const agent_options = {
       model: options.model,
       permission_mode: options.permissionMode,
       allowed_tools: options.allowedTools,
       disallowed_tools: options.disallowedTools,
+      system_prompt: options.systemPrompt,
       max_turns: options.maxTurns,
       max_thinking_tokens: options.maxThinkingTokens,
+      include_partial_messages: options.includePartialMessages,
       skills_enabled: options.skillsEnabled,
       setting_sources: options.settingSources,
     };

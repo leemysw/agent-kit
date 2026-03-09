@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- 清理 Session 级执行配置契约，`/sessions` 接口不再接收和持久化 `model`、`system_prompt`、`allowed_tools` 等执行选项
+- Agent 设置中的 `system_prompt` 已接入后端持久化，并在运行时与 Workspace Prompt 组合为最终系统提示词
+- Agent 设置中的 `include_partial_messages` 已接入前端会话渲染控制，默认值为 `true`
+
 ## [0.3.2] - 2026-03-09
 
 ### Changed

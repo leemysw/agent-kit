@@ -332,6 +332,7 @@ function mergeToolCalls(prev: ToolCall[], incoming: ToolCall[]): ToolCall[] {
 
 export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentSessionReturn {
   const wsUrl = options.wsUrl || process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8010/agent/v1/chat/ws';
+  const includePartialMessages = options.includePartialMessages ?? true;
 
   // 状态
   const [messages, setMessages] = useState<Message[]>([]);
@@ -387,6 +388,9 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
         }
 
         if (payload.kind === 'message_delta' && payload.delta) {
+          if (!includePartialMessages) {
+            return;
+          }
           setMessages(prev => reduceIncomingMessage(prev, payload.delta!, messageSessionKey, payload.turn_id || ''));
           setIsLoading(true);
           return;
@@ -409,7 +413,7 @@ export function useAgentSession(options: UseAgentSessionOptions = {}): UseAgentS
         }
       }
     }
-  }, [sessionKey]);
+  }, [includePartialMessages, sessionKey]);
 
   // WebSocket
   const { state: wsState, send: wsSend } = useWebSocket({

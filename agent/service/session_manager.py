@@ -94,29 +94,6 @@ class SessionManager:
             self._locks[session_key] = asyncio.Lock()
         return self._locks[session_key]
 
-    async def update_session_options(self, session_key: str) -> bool:
-        """更新会话配置（销毁旧 client，下次发消息时懒加载）"""
-        if session_key not in self._sessions:
-            logger.info(f"❌ 会话不存在于内存中: {session_key}")
-            return True
-
-        async with self.get_lock(session_key):
-            try:
-                old_client = self._sessions.get(session_key)
-                try:
-                    await old_client.disconnect()
-                    logger.info(f"🔌 断开旧SDK连接: {session_key}")
-                except Exception as e:
-                    logger.warning(f"⚠️ 断开旧连接时出错: {e}")
-
-                del self._sessions[session_key]
-                logger.info(f"✅ 会话选项已更新，client 已重置: {session_key}")
-                return True
-
-            except Exception as e:
-                logger.error(f"❌ 更新会话选项失败 {session_key}: {e}")
-                return False
-
     async def register_sdk_session(self, session_key: str, session_id: str) -> None:
         """注册 session_key 与 SDK session_id 的映射"""
         self._key_sdk_map[session_key] = session_id

@@ -15,11 +15,27 @@ export interface AgentOptions {
     permission_mode?: string;
     allowed_tools?: string[];
     disallowed_tools?: string[];
+    system_prompt?: string;
     max_turns?: number;
     max_thinking_tokens?: number;
+    include_partial_messages?: boolean;
     mcp_servers?: Record<string, any>;
     skills_enabled?: boolean;
     setting_sources?: ('user' | 'project')[];
+}
+
+/** Agent 配置表单值（前端编辑态，使用驼峰字段） */
+export interface AgentFormOptions {
+    model?: string;
+    permissionMode?: string;
+    allowedTools?: string[];
+    disallowedTools?: string[];
+    systemPrompt?: string;
+    maxTurns?: number;
+    maxThinkingTokens?: number;
+    includePartialMessages?: boolean;
+    skillsEnabled?: boolean;
+    settingSources?: ('user' | 'project')[];
 }
 
 // ==================== Agent 数据结构 ====================

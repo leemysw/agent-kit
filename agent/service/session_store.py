@@ -18,7 +18,7 @@
 [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
 """
 
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 from agent.service.db.session_repository import session_repository
 from agent.service.schema.model_message import AMessage
@@ -46,7 +46,6 @@ class MessageHistoryStore:
             channel_type: str = "websocket",
             chat_type: str = "dm",
             title: Optional[str] = None,
-            options: Optional[Dict] = None,
     ) -> Optional[ASession]:
         """创建新会话并返回"""
         success = await session_repository.create_session(
@@ -54,7 +53,6 @@ class MessageHistoryStore:
             channel_type=channel_type,
             chat_type=chat_type,
             title=title or "New Chat",
-            options=options,
         )
         if success:
             return await session_repository.get_session(session_key)
@@ -70,7 +68,6 @@ class MessageHistoryStore:
             agent_id: str = "main",
             session_id: Optional[str] = None,
             title: Optional[str] = None,
-            options: Optional[Dict] = None,
     ) -> bool:
         """创建或更新会话"""
         existing = await session_repository.get_session(session_key)
@@ -80,13 +77,11 @@ class MessageHistoryStore:
                 agent_id=agent_id,
                 session_id=session_id,
                 title=title or "New Chat",
-                options=options,
             )
         return await session_repository.update_session(
             session_key=session_key,
             session_id=session_id,
             title=title,
-            options=options,
         )
 
     async def get_all_sessions(self) -> List[ASession]:

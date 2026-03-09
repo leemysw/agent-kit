@@ -203,10 +203,25 @@ class AgentWorkspace:
 
         return "\n\n---\n\n".join(sections)
 
-    def build_sdk_options(self) -> dict:
+    def compose_system_prompt(self, custom_system_prompt: Optional[str] = None) -> Optional[str]:
+        """组合自定义 system prompt 与 workspace prompt。"""
+        workspace_prompt = self.build_system_prompt()
+        custom_prompt = (custom_system_prompt or "").strip()
+
+        sections = []
+        if custom_prompt:
+            sections.append(custom_prompt)
+        if workspace_prompt:
+            sections.append(workspace_prompt)
+
+        if not sections:
+            return None
+        return "\n\n---\n\n".join(sections)
+
+    def build_sdk_options(self, custom_system_prompt: Optional[str] = None) -> dict:
         """构建 ClaudeAgentOptions 的 workspace 相关配置"""
         options = {"cwd": str(self.path)}
-        prompt = self.build_system_prompt()
+        prompt = self.compose_system_prompt(custom_system_prompt=custom_system_prompt)
         if prompt:
             options["system_prompt"] = prompt
         return options

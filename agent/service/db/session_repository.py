@@ -177,7 +177,6 @@ class SessionRepository:
             last_activity=meta.get("last_activity") or datetime.now(timezone.utc).isoformat(),
             title=meta.get("title") or "New Chat",
             message_count=int(meta.get("message_count") or 0),
-            options=meta.get("options") or {},
         )
 
     @staticmethod
@@ -359,7 +358,6 @@ class SessionRepository:
         agent_id: str = "main",
         session_id: Optional[str] = None,
         title: Optional[str] = None,
-        options: Optional[Dict[str, Any]] = None,
     ) -> bool:
         """创建新会话。"""
         try:
@@ -384,7 +382,6 @@ class SessionRepository:
                     "last_activity": now,
                     "title": title or "New Chat",
                     "message_count": 0,
-                    "options": options or {},
                     "latest_round_id": None,
                     "round_status": {},
                 }
@@ -418,7 +415,6 @@ class SessionRepository:
         session_key: str,
         session_id: Optional[str] = None,
         title: Optional[str] = None,
-        options: Optional[Dict[str, Any]] = None,
         status: Optional[str] = None,
     ) -> bool:
         """更新会话信息。"""
@@ -436,8 +432,8 @@ class SessionRepository:
                     meta["session_id"] = session_id
                 if title is not None:
                     meta["title"] = title
-                if options is not None:
-                    meta["options"] = options
+                # 清理旧版本遗留的 session 级执行配置，避免继续暴露错误契约。
+                meta.pop("options", None)
                 if status is not None:
                     meta["status"] = status
                 meta["last_activity"] = datetime.now(timezone.utc).isoformat()

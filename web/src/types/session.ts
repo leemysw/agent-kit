@@ -2,29 +2,12 @@
  * 会话类型定义
  *
  * [INPUT]: 依赖 @/types/sdk 的 SessionId
- * [OUTPUT]: 对外提供 SessionOptions、Session、ApiSession、CreateSessionParams、UpdateSessionParams
- * [POS]: types 模块的会话核心类型，被 agent-api.ts 和 agent-options.tsx 消费
+ * [OUTPUT]: 对外提供 Session、ApiSession、CreateSessionParams、UpdateSessionParams
+ * [POS]: types 模块的会话核心类型，被 agent-api.ts 和 session store 消费
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
 import { SessionId } from "@/types/sdk";
-
-// ==================== 会话配置 ====================
-
-/** 会话配置选项 */
-export interface SessionOptions {
-  model?: string;
-  permissionMode?: string;
-  allowedTools?: string[];
-  disallowedTools?: string[];
-  systemPrompt?: string;
-  maxTurns?: number;
-  maxThinkingTokens?: number;
-  cwd?: string;
-  includePartialMessages?: boolean;
-  settingSources?: ('user' | 'project')[];
-  skillsEnabled?: boolean;
-}
 
 // ==================== 会话数据结构 ====================
 
@@ -38,8 +21,6 @@ export interface Session {
   session_id: SessionId | null;
   /** 会话标题 */
   title: string;
-  /** 会话配置选项 */
-  options: SessionOptions;
   /** 创建时间（时间戳） */
   created_at: number;
   /** 最后活动时间（时间戳） */
@@ -62,7 +43,6 @@ export interface ApiSession {
   is_active: boolean;
   title: string | null;
   message_count: number;
-  options: Record<string, any> | null;
 }
 
 // ==================== 操作参数类型 ====================
@@ -70,12 +50,10 @@ export interface ApiSession {
 /** 创建会话参数 */
 export interface CreateSessionParams {
   title?: string;
-  options?: Partial<SessionOptions>;
   agent_id?: string;
 }
 
 /** 更新会话参数 */
 export interface UpdateSessionParams {
   title?: string;
-  options?: Partial<SessionOptions>;
 }

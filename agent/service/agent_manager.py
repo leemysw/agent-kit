@@ -319,7 +319,7 @@ class AgentManager:
     # =====================================================
 
     # SDK 不支持的配置字段（业务层专用）
-    _NON_SDK_FIELDS = {"skills_enabled", "setting_sources"}
+    _NON_SDK_FIELDS = {"skills_enabled", "setting_sources", "include_partial_messages"}
 
     async def build_sdk_options(self, agent_id: str) -> dict:
         """从 Agent 配置 + Workspace 构建 ClaudeAgentOptions 参数
@@ -336,10 +336,11 @@ class AgentManager:
         # Workspace 层: cwd + system_prompt
         workspace = self._get_or_create_workspace(agent_id, synced_workspace)
         workspace.ensure_initialized(agent_name=agent.name)
-        sdk_options = workspace.build_sdk_options()
+        agent_opts = agent.options.model_dump(exclude_none=True)
+        custom_system_prompt = agent_opts.pop("system_prompt", None)
+        sdk_options = workspace.build_sdk_options(custom_system_prompt=custom_system_prompt)
 
         # Agent 层: model + tools + permissions + ...（过滤掉非 SDK 字段）
-        agent_opts = agent.options.model_dump(exclude_none=True)
         for field in self._NON_SDK_FIELDS:
             agent_opts.pop(field, None)
         sdk_options.update(agent_opts)
